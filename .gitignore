@@ -1,0 +1,14 @@
+__pycache__
+
+# ignore everything in the logs directory
+src/logs/*
+
+# do not ignore the directories, as git will completely ignore directories it thinks are empty.
+!src/logs/*/
+
+# now we need to ignore everything in the directories again
+src/logs/*/*
+
+# except the hparams.json file 
+!src/logs/*/hparams.json
+

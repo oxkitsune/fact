@@ -1,4 +1,7 @@
 import time
+import datetime
+import os
+import json
 import argparse
 
 import dgl
@@ -75,6 +78,8 @@ def parser_args():
                         help="AC_model_path")
     parser.add_argument('--GNN_model_path', type=str, default="./GNN_model",
                         help="GNN_model_path")
+    parser.add_argument('--save_dir', type=str, default="./logs",
+                        help="save directory")
     args = parser.parse_known_args()[0]
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     print(args)
@@ -97,6 +102,15 @@ def fair_metric(output, idx, labels, sens):
 
 def main():
     args = parser_args()
+    save_dir = args.save_dir
+    save_folder = datetime.datetime.now()
+    save_path = f"{save_dir}/{save_folder}/"
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    with open(os.path.join(save_path, 'hparams.json'), 'w') as f:
+        json.dump(vars(args), f, indent=4)
+
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     if args.cuda:
@@ -108,12 +122,12 @@ def main():
     if args.dataset != 'nba':
         if args.dataset == 'pokec_z':
             dataset = 'region_job'
-            embedding = np.load('pokec_z_embedding10.npy')  # embeding is produced by Deep Walk
+            embedding = np.load('pokec_z_embedding10.npy')  # embedding is produced by Deep Walk
             embedding = torch.tensor(embedding)
             sens_attr = "region"
         else:
             dataset = 'region_job_2'
-            embedding = np.load('pokec_n_embedding10.npy')  # embeding is produced by Deep Walk
+            embedding = np.load('pokec_n_embedding10.npy')  # embedding is produced by Deep Walk
             embedding = torch.tensor(embedding)
             sens_attr = "region"
         predict_attr = "I_am_working_in_field"
@@ -131,7 +145,7 @@ def main():
         seed = 42
         path = "../dataset/NBA"
         test_idx = True
-        embedding = np.load('nba_embedding10.npy')  # embeding is produced by Deep Walk
+        embedding = np.load('nba_embedding10.npy')  # embedding is produced by Deep Walk
         embedding = torch.tensor(embedding)
     print(dataset)
 
@@ -366,14 +380,14 @@ def main():
                             best_result['roc'] = roc_test
                             best_result['parity'] = parity
                             best_result['equality'] = equality
-                            torch.save(GNNmodel_inside, "GNNinside_epoch{:04d}_acc{:.4f}_roc{:.4f}_par{:.4f}_eq_{:.4f}".format(epoch,
+                            torch.save(GNNmodel_inside, save_path + "testGNNinside_epoch{:04d}_acc{:.4f}_roc{:.4f}_par{:.4f}_eq_{:.4f}".format(epoch,
                                                                                                                   acc_test.item(),
                                                                                                                   roc_test
                                                                                                                   ,
                                                                                                                   parity,
                                                                                                                   equality))
                             torch.save(ACmodel,
-                                       "ACmodelinside_epoch{:04d}_acc{:.4f}_roc{:.4f}_par{:.4f}_eq_{:.4f}".format(epoch,
+                                       save_path + "testACmodelinside_epoch{:04d}_acc{:.4f}_roc{:.4f}_par{:.4f}_eq_{:.4f}".format(epoch,
                                                                                                             acc_test.item(),
                                                                                                             roc_test
                                                                                                             , parity,
