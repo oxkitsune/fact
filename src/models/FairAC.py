@@ -1,5 +1,3 @@
-import random
-
 import torch.nn as nn
 from .GCN import GCN, GCN_Body
 from .GAT import GAT, GAT_body
@@ -56,33 +54,33 @@ class GNN(nn.Module):
         return z, y
 
 
-class FairGnn(nn.Module):
-    def __init__(self, nfeat, args):
-        super(FairGnn, self).__init__()
+# class FairGnn(nn.Module):
+#     def __init__(self, nfeat, args):
+#         super(FairGnn, self).__init__()
 
-        nhid = args.num_hidden
-        self.GNN = get_model(nfeat, args)
-        self.classifier = nn.Linear(nhid, 1)
-        self.classifierSen = nn.Linear(nhid, 1)
-        G_params = list(self.GNN.parameters()) + list(self.classifier.parameters())
-        self.optimizer_G = torch.optim.Adam(
-            G_params, lr=args.lr, weight_decay=args.weight_decay
-        )
-        self.optimizer_S = torch.optim.Adam(
-            self.classifierSen.parameters(), lr=args.lr, weight_decay=args.weight_decay
-        )
+#         nhid = args.num_hidden
+#         self.GNN = get_model(nfeat, args)
+#         self.classifier = nn.Linear(nhid, 1)
+#         self.classifierSen = nn.Linear(nhid, 1)
+#         G_params = list(self.GNN.parameters()) + list(self.classifier.parameters())
+#         self.optimizer_G = torch.optim.Adam(
+#             G_params, lr=args.lr, weight_decay=args.weight_decay
+#         )
+#         self.optimizer_S = torch.optim.Adam(
+#             self.classifierSen.parameters(), lr=args.lr, weight_decay=args.weight_decay
+#         )
 
-        self.args = args
-        self.criterion = nn.BCEWithLogitsLoss()
+#         self.args = args
+#         self.criterion = nn.BCEWithLogitsLoss()
 
-        self.G_loss = 0
-        self.A_loss = 0
+#         self.G_loss = 0
+#         self.A_loss = 0
 
-    def forward(self, g, x):
-        z = self.GNN(g, x)
-        y = self.classifier(z)
-        s = self.classifierSen(z)
-        return z, y, s
+#     def forward(self, g, x):
+#         z = self.GNN(g, x)
+#         y = self.classifier(z)
+#         s = self.classifierSen(z)
+#         return z, y, s
 
 
 # baseAC, used autoencoder to improve performance.
