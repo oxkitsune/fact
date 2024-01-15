@@ -3,6 +3,7 @@ import datetime
 import os
 import json
 import argparse
+import random
 
 import dgl
 
@@ -79,7 +80,11 @@ def parser_args():
     parser.add_argument('--GNN_model_path', type=str, default="./GNN_model",
                         help="GNN_model_path")
     parser.add_argument('--save_dir', type=str, default="./logs",
-                        help="save directory")
+                        help="save directory")    
+    parser.add_argument('--sens_attr_pokec', type=str, default="region",
+                        help="sensitive attribute for the pokec dataset")
+    parser.add_argument('--sens_attr_nba', type=str, default="country",
+                        help="sensitive attribute for the nba dataset")
     args = parser.parse_known_args()[0]
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     print(args)
@@ -111,6 +116,9 @@ def main():
     with open(os.path.join(save_path, 'hparams.json'), 'w') as f:
         json.dump(vars(args), f, indent=4)
 
+    log_file = os.path.join(save_path, 'log.txt')
+    test_log_file = os.path.join(save_path, 'testlog.txt')
+
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     if args.cuda:
@@ -124,12 +132,12 @@ def main():
             dataset = 'region_job'
             embedding = np.load('pokec_z_embedding10.npy')  # embedding is produced by Deep Walk
             embedding = torch.tensor(embedding)
-            sens_attr = "region"
+            sens_attr = args.sens_attr_pokec
         else:
             dataset = 'region_job_2'
             embedding = np.load('pokec_n_embedding10.npy')  # embedding is produced by Deep Walk
             embedding = torch.tensor(embedding)
-            sens_attr = "region"
+            sens_attr = args.sens_attr_pokec
         predict_attr = "I_am_working_in_field"
         label_number = args.label_number
         sens_number = args.sens_number
@@ -138,7 +146,7 @@ def main():
         test_idx = False
     else:
         dataset = 'nba'
-        sens_attr = "country"
+        sens_attr = args.sens_attr_nba
         predict_attr = "SALARY"
         label_number = 100
         sens_number = 50
@@ -397,7 +405,7 @@ def main():
                         log = "Epoch: {:04d}, loss_ac: {:.4f}, loss_reconstruction: {:.4f}, Csen_loss: {:.4}, Csen_adv_loss: {:.4f}, cls: {:.4f}" \
                             .format(epoch, loss_ac.item(), loss_reconstruction.item(), Csen_loss.item(),
                                     Csen_adv_loss.item(), cls_loss.item())
-                        with open('log.txt', 'a') as f:
+                        with open(log_file, 'a') as f:
                             f.write(log)
 
                         print("Test:",
@@ -408,7 +416,7 @@ def main():
 
                         log = 'Test: accuracy: {:.4f} roc: {:.4f} parity: {:.4f} equality: {:.4f}\n' \
                             .format(acc_test.item(), roc_test, parity, equality)
-                        with open('log.txt', 'a') as f:
+                        with open(log_file, 'a') as f:
                             f.write(log)
 
     print("Optimization Finished!")
@@ -416,12 +424,12 @@ def main():
 
     print('============performace on test set=============')
     print(best_ars_result)
-    with open('log.txt', 'a') as f:
+    with open(test_log_file, 'a') as f:
         f.write(str(best_ars_result))
     if len(best_result) > 0:
         log = "Test: accuracy: {:.4f}, roc: {:.4f}, parity: {:.4f}, equality: {:.4f}"\
                   .format(best_result['acc'],best_result['roc'], best_result['parity'],best_result['equality'])
-        with open('log.txt', 'a') as f:
+        with open(test_log_file, 'a') as f:
             f.write(log)
         print("Test:",
               "accuracy: {:.4f}".format(best_result['acc']),

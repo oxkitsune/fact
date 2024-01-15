@@ -12,3 +12,8 @@ src/logs/*/*
 # except the hparams.json file 
 !src/logs/*/hparams.json
 
+# since we are making nested folders now, we also need to do the magic trick here
+!src/logs/*/*/
+src/logs/*/*/*
+!src/logs/*/*/hparams.json
+
