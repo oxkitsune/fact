@@ -12,8 +12,9 @@ from sklearn.model_selection import train_test_split
 import torch
 import torch.nn.functional as F
 
-from utils import accuracy, load_pokec
+from utils import load_pokec
 from models.FairAC import FairAC2, GNN
+from metrics import accuracy
 
 
 def parser_args():

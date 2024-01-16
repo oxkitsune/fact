@@ -12,8 +12,10 @@ import torch.optim as optim
 
 from sklearn.model_selection import train_test_split
 
-from utils import load_data, accuracy, load_pokec
+from utils import load_data, load_pokec
 from models.FairGNN import FairGNN
+
+from metrics import accuracy
 
 # Training settings
 parser = argparse.ArgumentParser()
