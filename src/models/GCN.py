@@ -14,8 +14,6 @@ class GCN(nn.Module):
         x = self.fc(x)
         return x
 
-
-# def GCN(nn.Module):
 class GCN_Body(nn.Module):
     def __init__(self, nfeat, nhid, dropout):
         super(GCN_Body, self).__init__()

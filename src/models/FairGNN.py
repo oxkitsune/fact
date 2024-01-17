@@ -159,8 +159,8 @@ class ClassicAC(nn.Module):
             self.hgnn_ac.parameters(), lr=args.lr, weight_decay=args.weight_decay
         )
 
-    def forward(self, bias, emb_dest, emb_src, feature_src):
-        feature_src_re = self.hgnn_ac(bias, emb_dest, emb_src, feature_src)
+    def forward(self, biased_adj, emb_dest, emb_src, feature_src):
+        feature_src_re = self.hgnn_ac(biased_adj, emb_dest, emb_src, feature_src)
         return feature_src_re, None
 
     def loss(self, origin_feature, AC_feature):
@@ -192,9 +192,9 @@ class BaseAC(nn.Module):
             AC_params, lr=args.lr, weight_decay=args.weight_decay
         )
 
-    def forward(self, bias, emb_dest, emb_src, feature_src):
+    def forward(self, biased_adj, emb_dest, emb_src, feature_src):
         transformed_features = self.fc(feature_src)
-        feature_src_re = self.hgnn_ac(bias, emb_dest, emb_src, transformed_features)
+        feature_src_re = self.hgnn_ac(biased_adj, emb_dest, emb_src, transformed_features)
         feature_hat = self.fcdecoder(transformed_features)
         return feature_src_re, feature_hat
 
@@ -233,11 +233,11 @@ class FairSelectAC(nn.Module):
             AC_params, lr=args.lr, weight_decay=args.weight_decay
         )
 
-    def forward(self, bias, emb_dest, emb_src, feature_src, fairadj=False):
+    def forward(self, biased_adj, emb_dest, emb_src, feature_src, fairadj=False):
         if not fairadj:
-            fair_adj = self.fair_select(bias, feature_src)
+            fair_adj = self.fair_select(biased_adj, feature_src)
         else:
-            fair_adj = bias
+            fair_adj = biased_adj
         transformed_features = self.fc(feature_src)
         feature_src_re = self.hgnn_ac(fair_adj, emb_dest, emb_src, transformed_features)
         feature_hat = self.fcdecoder(transformed_features)

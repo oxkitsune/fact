@@ -53,36 +53,6 @@ class GNN(nn.Module):
         y = self.classifier(z)
         return z, y
 
-
-# class FairGnn(nn.Module):
-#     def __init__(self, nfeat, args):
-#         super(FairGnn, self).__init__()
-
-#         nhid = args.num_hidden
-#         self.GNN = get_model(nfeat, args)
-#         self.classifier = nn.Linear(nhid, 1)
-#         self.classifierSen = nn.Linear(nhid, 1)
-#         G_params = list(self.GNN.parameters()) + list(self.classifier.parameters())
-#         self.optimizer_G = torch.optim.Adam(
-#             G_params, lr=args.lr, weight_decay=args.weight_decay
-#         )
-#         self.optimizer_S = torch.optim.Adam(
-#             self.classifierSen.parameters(), lr=args.lr, weight_decay=args.weight_decay
-#         )
-
-#         self.args = args
-#         self.criterion = nn.BCEWithLogitsLoss()
-
-#         self.G_loss = 0
-#         self.A_loss = 0
-
-#     def forward(self, g, x):
-#         z = self.GNN(g, x)
-#         y = self.classifier(z)
-#         s = self.classifierSen(z)
-#         return z, y, s
-
-
 # baseAC, used autoencoder to improve performance.
 class BaseAC(nn.Module):
     def __init__(self, feature_dim, transformed_feature_dim, emb_dim, args):
@@ -108,9 +78,9 @@ class BaseAC(nn.Module):
             AC_params, lr=args.lr, weight_decay=args.weight_decay
         )
 
-    def forward(self, bias, emb_dest, emb_src, feature_src):
+    def forward(self, biased_adj, emb_dest, emb_src, feature_src):
         transformed_features = self.fc(feature_src)
-        feature_src_re = self.hgnn_ac(bias, emb_dest, emb_src, transformed_features)
+        feature_src_re = self.hgnn_ac(biased_adj, emb_dest, emb_src, transformed_features)
         feature_hat = self.fcdecoder(transformed_features)
         return feature_src_re, feature_hat
 
@@ -173,9 +143,9 @@ class FairAC2(nn.Module):
             self.classifierSen.parameters(), lr=args.lr, weight_decay=args.weight_decay
         )
 
-    def forward(self, bias, emb_dest, emb_src, feature_src):
+    def forward(self, biased_adj, emb_dest, emb_src, feature_src):
         transformed_features = self.encoder(feature_src)
-        feature_src_re = self.hgnn_ac(bias, emb_dest, emb_src, transformed_features)
+        feature_src_re = self.hgnn_ac(biased_adj, emb_dest, emb_src, transformed_features)
         feature_hat = self.decoder(transformed_features)
         return feature_src_re, feature_hat, transformed_features
 
