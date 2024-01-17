@@ -4,10 +4,20 @@ from dgl.nn.pytorch import SAGEConv
 
 
 class SAGE(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout):
+    def __init__(
+        self, feature_dim: int, hidden_dim: int, num_classes: int, dropout: float
+    ):
+        """The SAGE model.
+
+        Args:
+            feature_dim (int): The dimensionality of the input features
+            hidden_dim (int): The dimensionality of the hidden layers
+            num_classes (int): The number of classes
+            dropout (float): The dropout rate
+        """
         super(SAGE, self).__init__()
-        self.body = SAGE_Body(nfeat, nhid, dropout)
-        self.fc = nn.Linear(nhid, nclass)
+        self.body = SAGEBody(feature_dim, hidden_dim, dropout)
+        self.fc = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, g, x):
         x = self.body(g, x)
@@ -15,13 +25,22 @@ class SAGE(nn.Module):
         return x
 
 
-# def GCN(nn.Module):
-class SAGE_Body(nn.Module):
-    def __init__(self, nfeat, nhid, dropout):
-        super(SAGE_Body, self).__init__()
+class SAGEBody(nn.Module):
+    def __init__(
+        self, feature_dim: int, hidden_dim: int, num_classes: int, dropout: float
+    ):
+        """The body of the SAGE model.
 
-        self.gc1 = SAGEConv(nfeat, nhid, "mean")
-        self.gc2 = SAGEConv(nhid, nhid, "mean")
+        Args:
+            feature_dim (int): The dimensionality of the input features
+            hidden_dim (int): The dimensionality of the hidden layers
+            num_classes (int): The number of classes
+            dropout (float): The dropout rate
+        """
+        super(SAGEBody, self).__init__()
+
+        self.gc1 = SAGEConv(feature_dim, hidden_dim, "mean")
+        self.gc2 = SAGEConv(hidden_dim, hidden_dim, "mean")
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, g, x):

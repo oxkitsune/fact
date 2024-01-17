@@ -18,3 +18,4 @@ src/logs/*/*
 src/logs/*/*/*
 !src/logs/*/*/hparams.json
 
+.vscode/
