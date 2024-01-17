@@ -19,3 +19,5 @@ src/logs/*/*/*
 !src/logs/*/*/hparams.json
 
 .vscode/
+
+.venv

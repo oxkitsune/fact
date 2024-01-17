@@ -353,14 +353,14 @@ def main():
             training_adj = adjTensor[ac_train_idx][:, ac_train_idx][
                 :, feat_keep_idx
             ].cuda()
-            print("adjTensor", adjTensor.shape)
-            print("adjTensor[ac_train_idx]", adjTensor[ac_train_idx].shape)
-            print(
-                "adjTensor[ac_train_idx][:, ac_train_idx]",
-                adjTensor[ac_train_idx][:, ac_train_idx].shape,
-            )
-            print("training_adj", training_adj.shape)
-            break
+            # print("adjTensor", adjTensor.shape)
+            # print("adjTensor[ac_train_idx]", adjTensor[ac_train_idx].shape)
+            # print(
+            #     "adjTensor[ac_train_idx][:, ac_train_idx]",
+            #     adjTensor[ac_train_idx][:, ac_train_idx].shape,
+            # )
+            # print("training_adj", training_adj.shape)
+            # break
             feature_src_re2, features_hat, transformed_feature = ACmodel(
                 training_adj,
                 embedding[ac_train_idx],

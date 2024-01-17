@@ -1,6 +1,8 @@
 import torch
 from torch.utils.data import Dataset
 
+from sklearn.model_selection import train_test_split
+
 import numpy as np
 import scipy.sparse as sp
 import torch
@@ -87,13 +89,94 @@ from pathlib import Path
 class NBADataset(Dataset):
     def __init__(
         self,
+        nodes_path: Path,
+        edges_path: Path,
+        feat_drop_rate: float,
+        train: bool,
         sens_attr="country",
         predict_attr="SALARY",
         label_number=100,
         sens_number=50,
-        seed=42,
+        # number of samples for ac training
+        sample_number=1000,
     ):
-        pass
+        self.feat_drop_rate = feat_drop_rate
+        self.sample_number = sample_number
+
+        adj, features, labels, sens, idx_train = load(
+            nodes_path, edges_path, sens_attr, predict_attr, label_number, sens_number
+        )
+
+        self.adj = torch.tensor(adj.toarray())
+        # self.sub_nodes = [
+        #     torch.tensor(sub) for sub in np.array_split(range(features.shape[0]), 4)
+        # ]
+        self.sub_nodes = list(torch.split(torch.arange(features.shape[0]), 4))
+
+        # Create fair subgraph adj for each graph
+        self.adjs_sub = []
+        self.keep_indices_sub = []
+        self.drop_indices_sub = []
+        for sub_node in self.sub_nodes:
+            keep_indices, drop_indices = train_test_split(
+                np.arange(len(sub_node)), test_size=feat_drop_rate
+            )
+            self.keep_indices_sub.append(keep_indices)
+            self.drop_indices_sub.append(drop_indices)
+            self.adjs_sub.append(self.adj[sub_node][:, sub_node][:, keep_indices])
+
+        # get masked values depending on if we have training or test set
+        if train:
+            mask = torch.zeros(adj.shape[1]).bool()
+            mask[idx_train] = True
+        else:
+            mask = torch.ones(adj.shape[1]).bool()
+            mask[idx_train] = False
+
+        self.adj = dgl.from_scipy(adj[mask][:, mask])
+        self.features = features[mask]
+        self.labels = labels[mask]
+        self.sens = sens[mask]
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, index):
+        features_embedding = torch.zeros(
+            (self.features.shape[0], self.transformed_feature_dim)
+        ).cuda()
+
+        for i, sub_node in enumerate(self.sub_nodes):
+            keep_indices = self.keep_indices_sub[i]
+            drop_indices = self.drop_indices_sub[i]
+
+            # features_embedding[sub_node[feat_drop_idx_sub]] = feature_src_AC[
+            #     feat_drop_idx_sub
+            # ]
+
+        return (
+            self.adj,
+            self.features[index],
+            self.labels[index],
+            self.sens[index],
+        )
+
+    def sample_ac(self):
+        # sub_nodes[0][keep] is fully labeled
+        ac_train_indices = self.sub_nodes[0][self.keep_indices_sub[0]][
+            : self.sample_number
+        ]
+        keep_indices, drop_indices = train_test_split(
+            np.arange(ac_train_indices.shape[0]), test_size=self.feat_drop_rate
+        )
+
+        adj = self.adj[ac_train_indices][:, ac_train_indices][:, keep_indices]
+        features = self.features[ac_train_indices]
+        kept_features = features[keep_indices]
+        dropped_features = features[drop_indices]
+        sens = self.sens[ac_train_indices]
+
+        return adj, kept_features, dropped_features, sens
 
 
 class PokecNDataset(Dataset):
@@ -112,7 +195,6 @@ def load(
     predict_attr: str,
     label_number=1000,
     sens_number=500,
-    seed=19,
     test_idx=False,
 ):
     """Load data"""
@@ -139,6 +221,7 @@ def load(
         shape=(labels.shape[0], labels.shape[0]),
         dtype=np.float32,
     )
+
     # build symmetric adjacency matrix
     adj = adj + adj.T.multiply(adj.T > adj) - adj.multiply(adj.T > adj)
 
@@ -169,4 +252,11 @@ def load(
     idx_val = torch.LongTensor(idx_val)
     idx_test = torch.LongTensor(idx_test)
 
-    return adj, features, labels, idx_train, idx_val, idx_test, sens, idx_sens_train
+    return adj, features, labels, sens, idx_train
+
+
+if __name__ == "__main__":
+    data = NBADataset(
+        "./dataset/NBA/nba.csv", "./dataset/NBA/nba_relationship.txt", train=True
+    )
+    print(data[0])
