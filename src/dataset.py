@@ -1,5 +1,4 @@
 import torch
-from torch.utils.data import Dataset
 
 from sklearn.model_selection import train_test_split
 
@@ -86,11 +85,12 @@ from pathlib import Path
 #     sens[sens > 0] = 1
 
 
-class NBADataset(Dataset):
+class NBADataset:
     def __init__(
         self,
         nodes_path: Path,
         edges_path: Path,
+        embedding_path: Path,
         feat_drop_rate: float,
         train: bool,
         sens_attr="country",
@@ -102,6 +102,7 @@ class NBADataset(Dataset):
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
+        self.embeddings = torch.tensor(np.load("nba_embedding10.npy"))
 
         adj, features, labels, sens, idx_train = load(
             nodes_path, edges_path, sens_attr, predict_attr, label_number, sens_number
@@ -141,25 +142,14 @@ class NBADataset(Dataset):
     def __len__(self):
         return len(self.labels)
 
-    def __getitem__(self, index):
-        features_embedding = torch.zeros(
-            (self.features.shape[0], self.transformed_feature_dim)
-        ).cuda()
-
-        for i, sub_node in enumerate(self.sub_nodes):
-            keep_indices = self.keep_indices_sub[i]
-            drop_indices = self.drop_indices_sub[i]
-
-            # features_embedding[sub_node[feat_drop_idx_sub]] = feature_src_AC[
-            #     feat_drop_idx_sub
-            # ]
-
-        return (
-            self.adj,
-            self.features[index],
-            self.labels[index],
-            self.sens[index],
-        )
+    # TODO: attribute completion over graph
+    # def __getitem__(self, index):
+    #     return (
+    #         self.adj,
+    #         self.features[index],
+    #         self.labels[index],
+    #         self.sens[index],
+    #     )
 
     def sample_ac(self):
         # sub_nodes[0][keep] is fully labeled
@@ -171,20 +161,22 @@ class NBADataset(Dataset):
         )
 
         adj = self.adj[ac_train_indices][:, ac_train_indices][:, keep_indices]
+        embeddings = self.embeddings[ac_train_indices]
+        kept_embeddings = self.embeddings[keep_indices]
         features = self.features[ac_train_indices]
         kept_features = features[keep_indices]
         dropped_features = features[drop_indices]
         sens = self.sens[ac_train_indices]
 
-        return adj, kept_features, dropped_features, sens
+        return adj, embeddings, kept_embeddings, kept_features, dropped_features, sens
 
 
-class PokecNDataset(Dataset):
+class PokecNDataset:
     def __init__(self, sens_attr="region", predict_attr="SALARY"):
         pass
 
 
-class PokecZDataset(Dataset):
+class PokecZDataset:
     pass
 
 
@@ -196,6 +188,7 @@ def load(
     label_number=1000,
     sens_number=500,
     test_idx=False,
+    shuffle=True,
 ):
     """Load data"""
     idx_features_labels = pd.read_csv(nodes_path)
@@ -230,6 +223,7 @@ def load(
     labels = torch.LongTensor(labels)
 
     label_idx = np.where(labels >= 0)[0]
+    np.random.shuffle(label_idx)
 
     idx_train = label_idx[: min(int(0.5 * len(label_idx)), label_number)]
     idx_val = label_idx[int(0.5 * len(label_idx)) : int(0.75 * len(label_idx))]
@@ -245,7 +239,7 @@ def load(
     idx_test = np.asarray(list(sens_idx & set(idx_test)))
     sens = torch.FloatTensor(sens)
     idx_sens_train = list(sens_idx - set(idx_val) - set(idx_test))
-
+    np.random.shuffle(idx_sens_train)
     idx_sens_train = torch.LongTensor(idx_sens_train[:sens_number])
 
     idx_train = torch.LongTensor(idx_train)
