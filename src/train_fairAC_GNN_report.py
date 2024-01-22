@@ -280,6 +280,8 @@ def main():
     adj_mat = adj.toarray()
     adjTensor = torch.FloatTensor(adj_mat)
     sub_nodes = np.array_split(range(features.shape[0]), 4)
+    print("features shape", features.shape)
+    print("sub_nodes", sub_nodes.shape)
     sub_nodes = [torch.tensor(s).cuda() for s in sub_nodes]
 
     transformed_feature_dim = args.transformed_feature_dim
