@@ -1,6 +1,6 @@
-from _gat import GATBody
-from _gcn import GCNBody
-from _sage import SAGEBody
+from ._gat import GATBody
+from ._gcn import GCNBody
+from ._sage import SAGEBody
 
 import torch
 from torch import nn

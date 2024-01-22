@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch import GATConv
+from typing import List
 
 
 class GAT(nn.Module):
@@ -10,7 +11,7 @@ class GAT(nn.Module):
         feature_dim: int,
         hidden_dim: int,
         num_classes: int,
-        heads: list[int] | None,
+        heads: List[int] | None,
         num_heads: int | None,
         num_out_heads: int | None,
         feat_drop: float,
@@ -25,7 +26,7 @@ class GAT(nn.Module):
             feature_dim (int): The dimensionality of the input features
             hidden_dim (int): The dimensionality of the hidden layers
             num_classes (int): The number of classes to predict
-            heads (list[int] | None): The number of attention heads in each layer, if specified this overrides `num_heads` and `num_out_heads`
+            heads (List[int] | None): The number of attention heads in each layer, if specified this overrides `num_heads` and `num_out_heads`
             num_heads (int | None): The number of attention heads in the hidden layers
             num_out_heads (int | None): The number of attention heads in the output layer
             feat_drop (float): The dropout rate for the input features
@@ -75,7 +76,7 @@ class GATBody(nn.Module):
         num_layers: int,
         input_dim: int,
         hidden_dim: int,
-        heads: list[int],
+        heads: List[int],
         feat_drop: float,
         attn_drop: float,
         negative_slope: float,
@@ -87,7 +88,7 @@ class GATBody(nn.Module):
             num_layers (int): The number of GATConv layers in this model
             input_dim (int): The dimensionality of the input features
             hidden_dim (int): The dimensionality of the hidden layers
-            heads (list[int]): The number of attention heads in each layer
+            heads (List[int]): The number of attention heads in each layer
             feat_drop (float): The dropout rate for the input features
             attn_drop (float): THe dropout rate for the attention weights
             negative_slope (float): The negative slope for the LeakyReLU activation function
