@@ -102,7 +102,7 @@ class NBADataset:
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
-        self.embeddings = torch.tensor(np.load(embedding_path))
+        self.embeddings = torch.tensor(np.load(embedding_path, allow_pickle=True))
 
         adj, features, labels, sens, idx_train = load(
             nodes_path, edges_path, sens_attr, predict_attr, label_number, sens_number
