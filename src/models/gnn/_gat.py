@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch import GATConv
-from typing import List
+from typing import List, Optional
 
 
 class GAT(nn.Module):
@@ -11,9 +11,9 @@ class GAT(nn.Module):
         feature_dim: int,
         hidden_dim: int,
         num_classes: int,
-        heads: List[int] | None,
-        num_heads: int | None,
-        num_out_heads: int | None,
+        heads: Optional[List[int]],
+        num_heads: Optional[int],
+        num_out_heads: Optional[int],
         feat_drop: float,
         attn_drop: float,
         negative_slope: float,
