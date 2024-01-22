@@ -4,9 +4,9 @@ from dataset import NBADataset
 from pathlib import Path
 
 dataset = NBADataset(
-    nodes_path=Path("data/nba/nodes.csv"),
-    edges_path=Path("data/nba/edges.csv"),
-    embedding_path=Path("data/nba/embedding.csv"),
+    nodes_path=Path("dataset/NBA/nba.csv"),
+    edges_path=Path("dataset/NBA/nba_relationship.txt"),
+    embedding_path=Path("dataset/NBA/nba_embedding10.npy"),
     feat_drop_rate=0.2,
     train=True,
 )
