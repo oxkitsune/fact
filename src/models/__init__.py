@@ -4,4 +4,4 @@
 # from .FairGNN import *
 # from .SAGE import *
 
-from ._gnn import GNN
+from gnn import *
