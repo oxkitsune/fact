@@ -6,7 +6,7 @@ from pathlib import Path
 dataset = NBADataset(
     nodes_path=Path("dataset/NBA/nba.csv"),
     edges_path=Path("dataset/NBA/nba_relationship.txt"),
-    embedding_path=Path("dataset/NBA/nba_embedding10.npy"),
+    embedding_path=Path("dataset/NBA/nba.embedding"),
     feat_drop_rate=0.2,
     train=True,
 )
