@@ -13,15 +13,14 @@ def _create_gnn(gnn_type: GNNKind, **kwargs):
     """
     Create a GNN model based on the given type.
     """
-    match gnn_type:
-        case "GCN":
-            return GCNBody(**kwargs)
-        case "GAT":
-            return GATBody(**kwargs)
-        case "SAGE":
-            return SAGEBody(**kwargs)
-        case _:
-            raise ValueError(f"Unknown GNN type: {gnn_type}")
+    if gnn_type == "GCN":
+        return GCNBody(**kwargs)
+    elif gnn_type == "GAT":
+        return GATBody(**kwargs)
+    elif gnn_type == "SAGE":
+        return SAGEBody(**kwargs)
+    else:
+        raise ValueError(f"Unknown GNN type: {gnn_type}")
 
 
 # taken from `FairAC.py`
