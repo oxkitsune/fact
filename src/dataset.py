@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 
 import numpy as np
 import scipy.sparse as sp
-import torch
+from torch.utils.data import Dataset, DataLoader
 import os
 import pandas as pd
 import dgl
@@ -85,99 +85,212 @@ from pathlib import Path
 #     sens[sens > 0] = 1
 
 
-class NBADataset:
+def feature_norm(features):
+    min_values = features.min(axis=0)[0]
+    max_values = features.max(axis=0)[0]
+
+    return 2 * (features - min_values).div(max_values - min_values) - 1
+
+
+class FairACDataset(Dataset):
     def __init__(
         self,
         nodes_path: Path,
         edges_path: Path,
         embedding_path: Path,
         feat_drop_rate: float,
-        train: bool,
-        sens_attr="country",
-        predict_attr="SALARY",
-        label_number=100,
-        sens_number=50,
+        sens_attr: str,
+        predict_attr: str,
+        label_number: int,
+        sens_number: int,
         # number of samples for ac training
-        sample_number=1000,
+        sample_number: int,
+        test_idx: bool,
+        normalize_features: bool,
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
-        self.embeddings = torch.tensor(np.load(embedding_path, allow_pickle=True))
+        self.embeddings = torch.tensor(np.load(embedding_path))
 
-        adj, features, labels, sens, idx_train = load(
-            nodes_path, edges_path, sens_attr, predict_attr, label_number, sens_number
+        adj, features, labels, sens, train_idx = load(
+            nodes_path,
+            edges_path,
+            sens_attr,
+            predict_attr,
+            label_number,
+            sens_number,
+            test_idx,
+            # TODO: fact check
+            # we want to do shuffling in the dataloader
+            shuffle=False,
         )
 
-        self.adj = torch.tensor(adj.toarray())
-        # self.sub_nodes = [
-        #     torch.tensor(sub) for sub in np.array_split(range(features.shape[0]), 4)
-        # ]
-        self.sub_nodes = list(torch.split(torch.arange(features.shape[0]), 4))
+        if normalize_features:
+            features = feature_norm(features)
 
-        # Create fair subgraph adj for each graph
-        self.adjs_sub = []
-        self.keep_indices_sub = []
-        self.drop_indices_sub = []
+        labels[labels > 1] = 1
+        if sens_attr:
+            sens[sens > 0] = 1
+
+        self.adj = torch.tensor(adj.toarray(), dtype=torch.float)
+        self.sub_nodes = list(torch.chunk(torch.arange(features.shape[0]), 4))
+
+        # create fair subgraph adj for each graph
+        self.sub_adjs = []
+        self.sub_keep_indices = []
+        self.sub_drop_indices = []
         for sub_node in self.sub_nodes:
             keep_indices, drop_indices = train_test_split(
                 np.arange(len(sub_node)), test_size=feat_drop_rate
             )
-            self.keep_indices_sub.append(keep_indices)
-            self.drop_indices_sub.append(drop_indices)
-            self.adjs_sub.append(self.adj[sub_node][:, sub_node][:, keep_indices])
+            self.sub_keep_indices.append(keep_indices)
+            self.sub_drop_indices.append(drop_indices)
+            self.sub_adjs.append(self.adj[sub_node][:, sub_node][:, keep_indices])
 
-        # get masked values depending on if we have training or test set
-        if train:
-            mask = torch.zeros(adj.shape[1]).bool()
-            mask[idx_train] = True
-        else:
-            mask = torch.ones(adj.shape[1]).bool()
-            mask[idx_train] = False
+        mask = torch.zeros(adj.shape[1]).bool()
+        mask[train_idx] = True
 
-        self.adj = dgl.from_scipy(adj[mask][:, mask])
-        self.features = features[mask]
-        self.labels = labels[mask]
-        self.sens = sens[mask]
+        # mask for removing test values
+        self.mask = mask
+
+        # get y_idx indices
+        indices = []
+        counter = 0
+        for e in mask:
+            indices.append(counter)
+            if e:
+                counter += 1
+        indices = torch.tensor(indices)
+
+        self.y_idx = indices[train_idx]
+        self.train_idx = train_idx
+        self.labels = labels
+
+        self.train_adj = dgl.from_scipy(adj[mask][:, mask])
+        self.features = features
+        self.sens = sens
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.sub_nodes)
 
-    # TODO: attribute completion over graph
-    # def __getitem__(self, index):
-    #     return (
-    #         self.adj,
-    #         self.features[index],
-    #         self.labels[index],
-    #         self.sens[index],
-    #     )
+    # gets a sub node, can be enumerated through with a dataloader
+    def __getitem__(self, index):
+        sub_node = self.sub_nodes[index]
+        embeddings = self.embeddings[sub_node]
+        features = self.features[sub_node]
+        keep_indices = self.sub_keep_indices[index]
+        drop_indices = self.sub_drop_indices[index]
+
+        return sub_node, embeddings, features, keep_indices, drop_indices
 
     def sample_ac(self):
         # sub_nodes[0][keep] is fully labeled
-        ac_train_indices = self.sub_nodes[0][self.keep_indices_sub[0]][
+        ac_train_indices = self.sub_nodes[0][self.sub_keep_indices[0]][
             : self.sample_number
         ]
         keep_indices, drop_indices = train_test_split(
             np.arange(ac_train_indices.shape[0]), test_size=self.feat_drop_rate
         )
 
-        adj = self.adj[ac_train_indices][:, ac_train_indices][:, keep_indices]
+        train_adj = self.adj[ac_train_indices][:, ac_train_indices][:, keep_indices]
         embeddings = self.embeddings[ac_train_indices]
-        kept_embeddings = self.embeddings[keep_indices]
         features = self.features[ac_train_indices]
-        kept_features = features[keep_indices]
-        dropped_features = features[drop_indices]
         sens = self.sens[ac_train_indices]
 
-        return adj, embeddings, kept_embeddings, kept_features, dropped_features, sens
+        return train_adj, embeddings, features, sens, keep_indices, drop_indices
+
+    def inside_labels(self):
+        return self.y_idx, self.labels[self.train_idx]
 
 
-class PokecNDataset:
-    def __init__(self, sens_attr="region", predict_attr="SALARY"):
-        pass
+class NBA(FairACDataset):
+    def __init__(
+        self,
+        nodes_path: Path,
+        edges_path: Path,
+        embedding_path: Path,
+        feat_drop_rate: float,
+        sens_attr="country",
+        predict_attr="SALARY",
+        label_number=100,
+        sens_number=50,
+        sample_number=1000,
+        test_idx=True,
+        normalize_features=True,
+    ):
+        super().__init__(
+            nodes_path,
+            edges_path,
+            embedding_path,
+            feat_drop_rate,
+            sens_attr,
+            predict_attr,
+            label_number,
+            sens_number,
+            sample_number,
+            test_idx,
+            normalize_features,
+        )
 
 
-class PokecZDataset:
-    pass
+class PokecN(FairACDataset):
+    def __init__(
+        self,
+        nodes_path: Path,
+        edges_path: Path,
+        embedding_path: Path,
+        feat_drop_rate: float,
+        sens_attr="region",
+        predict_attr="I_am_working_in_field",
+        label_number=100,
+        sens_number=50,
+        sample_number=1000,
+        test_idx=False,
+        normalize_features=True,
+    ):
+        super().__init__(
+            nodes_path,
+            edges_path,
+            embedding_path,
+            feat_drop_rate,
+            sens_attr,
+            predict_attr,
+            label_number,
+            sens_number,
+            sample_number,
+            test_idx,
+            normalize_features,
+        )
+
+
+class PokecZ(FairACDataset):
+    def __init__(
+        self,
+        nodes_path: Path,
+        edges_path: Path,
+        embedding_path: Path,
+        feat_drop_rate: float,
+        sens_attr="region",
+        predict_attr="I_am_working_in_field",
+        label_number=100,
+        sens_number=50,
+        sample_number=1000,
+        test_idx=False,
+        normalize_features=True,
+    ):
+        super().__init__(
+            nodes_path,
+            edges_path,
+            embedding_path,
+            feat_drop_rate,
+            sens_attr,
+            predict_attr,
+            label_number,
+            sens_number,
+            sample_number,
+            test_idx,
+            normalize_features,
+        )
 
 
 def load(
@@ -217,13 +330,15 @@ def load(
 
     # build symmetric adjacency matrix
     adj = adj + adj.T.multiply(adj.T > adj) - adj.multiply(adj.T > adj)
-
     adj = adj + sp.eye(adj.shape[0])
-    features = torch.FloatTensor(np.array(features.todense()))
-    labels = torch.LongTensor(labels)
+
+    features = torch.tensor(np.array(features.todense()))
+    labels = torch.tensor(labels)
 
     label_idx = np.where(labels >= 0)[0]
-    np.random.shuffle(label_idx)
+
+    if shuffle:
+        np.random.shuffle(label_idx)
 
     idx_train = label_idx[: min(int(0.5 * len(label_idx)), label_number)]
     idx_val = label_idx[int(0.5 * len(label_idx)) : int(0.75 * len(label_idx))]
@@ -237,20 +352,42 @@ def load(
 
     sens_idx = set(np.where(sens >= 0)[0])
     idx_test = np.asarray(list(sens_idx & set(idx_test)))
-    sens = torch.FloatTensor(sens)
+    sens = torch.tensor(sens)
     idx_sens_train = list(sens_idx - set(idx_val) - set(idx_test))
-    np.random.shuffle(idx_sens_train)
-    idx_sens_train = torch.LongTensor(idx_sens_train[:sens_number])
 
-    idx_train = torch.LongTensor(idx_train)
-    idx_val = torch.LongTensor(idx_val)
-    idx_test = torch.LongTensor(idx_test)
+    if shuffle:
+        np.random.shuffle(idx_sens_train)
+
+    idx_sens_train = torch.tensor(idx_sens_train[:sens_number])
+
+    idx_train = torch.tensor(idx_train)
+    idx_val = torch.tensor(idx_val)
+    idx_test = torch.tensor(idx_test)
 
     return adj, features, labels, sens, idx_train
 
 
 if __name__ == "__main__":
-    data = NBADataset(
-        "./dataset/NBA/nba.csv", "./dataset/NBA/nba_relationship.txt", train=True
+    # dataset = NBA(
+    #     "./dataset/NBA/nba.csv",
+    #     "./dataset/NBA/nba_relationship.txt",
+    #     "./src/nba_embedding10.npy",
+    #     feat_drop_rate=0.3,
+    # )
+
+    dataset = PokecZ(
+        "./dataset/pokec/region_job.csv",
+        "./dataset/pokec/region_job_relationship.txt",
+        "./src/pokec_z_embedding10.npy",
+        feat_drop_rate=0.3,
     )
-    print(data[0])
+
+    loader = DataLoader(dataset)
+
+    for i, (sub_node, embeddings, features, keep_indices, drop_indices) in enumerate(
+        loader
+    ):
+        print(sub_node)
+
+    print(dataset.sample_ac())
+    print(dataset.inside_labels())
