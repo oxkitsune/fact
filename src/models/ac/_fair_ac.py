@@ -17,7 +17,7 @@ class FairAC(nn.Module):
     ):
         super(FairAC, self).__init__()
         self.ae = FairACAutoEncoder(feature_dim, transformed_feature_dim, emb_dim)
-        self.hggn_ac = HGNNAC(
+        self.hgnn_ac = HGNNAC(
             input_dim=emb_dim,
             hidden_dim=attn_vec_dim,
             dropout=dropout,
@@ -30,7 +30,7 @@ class FairAC(nn.Module):
 
     def forward(self, biased_adj, emb_dest, emb_src, feature_src):
         transformed_features, feature_hat = self.ae(feature_src)
-        feature_src_re = self.hggn_ac(
+        feature_src_re = self.hgnn_ac(
             biased_adj, emb_dest, emb_src, transformed_features
         )
 
@@ -62,8 +62,8 @@ class FairACAutoEncoder(nn.Module):
         )
 
         # TODO: figure out why they set gain to 1.414 (sqrt(2) perhaps?)
-        nn.init.xavier_normal_(self.encoder.Linear1.weight, gain=1.414)
-        nn.init.xavier_normal_(self.encoder.Linear2.weight, gain=1.414)
+        nn.init.xavier_normal_(self.encoder[0].weight, gain=1.414)
+        nn.init.xavier_normal_(self.encoder[2].weight, gain=1.414)
 
         self.decoder = nn.Sequential(
             nn.Linear(transformed_feature_dim, 2 * transformed_feature_dim),
@@ -72,11 +72,11 @@ class FairACAutoEncoder(nn.Module):
         )
 
         # TODO: figure out why they set gain to 1.414 (sqrt(2) perhaps?)
-        nn.init.xavier_normal_(self.decoder.Linear1.weight, gain=1.414)
-        nn.init.xavier_normal_(self.decoder.Linear2.weight, gain=1.414)
+        nn.init.xavier_normal_(self.decoder[0].weight, gain=1.414)
+        nn.init.xavier_normal_(self.decoder[2].weight, gain=1.414)
 
     def forward(self, x):
         h = self.encoder(x)
-        h_hat = self.decoder(x)
+        h_hat = self.decoder(h)
 
         return h, h_hat
