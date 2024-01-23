@@ -8,7 +8,7 @@ class GAT(nn.Module):
     def __init__(
         self,
         num_layers: int,
-        feature_dim: int,
+        input_dim: int,
         hidden_dim: int,
         num_classes: int,
         heads: Optional[List[int]],
@@ -23,7 +23,7 @@ class GAT(nn.Module):
 
         Args:
             num_layers (int): The number of GATConv layers in this model
-            feature_dim (int): The dimensionality of the input features
+            input_dim (int): The dimensionality of the input features
             hidden_dim (int): The dimensionality of the hidden layers
             num_classes (int): The number of classes to predict
             heads (List[int] | None): The number of attention heads in each layer, if specified this overrides `num_heads` and `num_out_heads`
@@ -53,7 +53,7 @@ class GAT(nn.Module):
 
         self.body = GATBody(
             num_layers,
-            feature_dim,
+            input_dim,
             hidden_dim,
             heads,
             feat_drop,

@@ -1,4 +1,5 @@
 from models.ac import FairAC, Trainer
+from models.gnn import GCNBody
 from dataset import NBA
 
 from pathlib import Path
@@ -29,6 +30,16 @@ fair_ac = FairAC(
     num_sensitive_classes=1,
 )
 
-trainer = Trainer(ac_model=fair_ac, lambda2=0.7, dataset=dataset)
+trainer = Trainer(
+    ac_model=fair_ac,
+    lambda2=0.7,
+    dataset=dataset,
+    gnn_kind="GCN",
+    gnn_hidden_dim=128,
+    gnn_lr=1e-3,
+    gnn_weight_decay=1e-5,
+    gnn_args={"dropout": 0.5},
+)
+
 trainer.pretrain(epochs=200)
-trainer.train(epochs=3000, acc=0.7, fairness=0.7)
+trainer.train(epochs=3000)

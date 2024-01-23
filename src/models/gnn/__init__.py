@@ -40,6 +40,7 @@ class WrappedGNN(nn.Module):
         gnn_type: GNNKind,
         lr: float,
         weight_decay: float,
+        **kwargs,
     ):
         """A wrapper class for GNN models.
 
@@ -51,14 +52,16 @@ class WrappedGNN(nn.Module):
             weight_decay (float): The weight decay
         """
         super(WrappedGNN, self).__init__()
-        self.gnn = _create_gnn(gnn_type, input_dim, hidden_dim)
+        self.gnn = _create_gnn(
+            gnn_type, input_dim=input_dim, hidden_dim=hidden_dim, **kwargs
+        )
         self.classifier = nn.Linear(hidden_dim, 1)
-        self.optimizer_G = torch.optim.Adam(
+        self.optimizer = torch.optim.Adam(
             self.parameters(), lr=lr, weight_decay=weight_decay
         )
         self.criterion = nn.BCEWithLogitsLoss()
 
     def forward(self, g, x):
-        z = self._gnn(g, x)
+        z = self.gnn(g, x)
         y = self.classifier(z)
         return z, y

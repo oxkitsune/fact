@@ -1,7 +1,12 @@
 from itertools import chain
 import torch
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
+
+from typing import Callable
+
 from tqdm import trange, tqdm
+from models.gnn import GNNKind, WrappedGNN
 
 
 class Trainer:
@@ -9,6 +14,11 @@ class Trainer:
         self,
         ac_model,
         dataset,
+        gnn_kind: GNNKind,
+        gnn_hidden_dim: int,
+        gnn_lr: float,
+        gnn_weight_decay: float,
+        gnn_args: dict,
         lambda1=1,
         lambda2=1,
         lr: float = 1e-3,
@@ -16,6 +26,11 @@ class Trainer:
     ):
         self.ac_model = ac_model
         self.dataset = dataset
+        self.gnn_kind = gnn_kind
+        self.gnn_hidden_dim = gnn_hidden_dim
+        self.gnn_lr = gnn_lr
+        self.gnn_weight_decay = gnn_weight_decay
+        self.gnn_args = gnn_args
 
         self.lambda1 = lambda1
         self.lambda2 = lambda2
@@ -78,7 +93,7 @@ class Trainer:
             total_loss.backward()
             self.ac_optimizer.step()
 
-    def train(self, epochs, acc, fairness, progress_bar=True):
+    def train(self, epochs, progress_bar=True):
         pbar = trange(epochs, disable=not progress_bar)
         for epoch in pbar:
             pbar.set_description(f"Epoch {epoch}")
@@ -99,6 +114,7 @@ class Trainer:
             kept_features = features[keep_indices]
             dropped_features = features[drop_indices]
 
+            print("train embeddings shape", embeddings.shape)
             feature_src_re2, features_hat, transformed_feature = self.ac_model(
                 train_adj,
                 embeddings,
@@ -159,3 +175,71 @@ class Trainer:
             pbar.set_postfix_str(
                 f"Loss AC: {loss_ac.item():.4f}, Loss Reconstruction: {loss_reconstruction.item():.4f}, Loss Sensitive: {(Csen_adv_loss - Csen_loss):.4f}",
             )
+
+            if epoch % 100 == 0:
+                self._eval_with_gnn(train_adj)
+
+    def _eval_with_gnn(self, sub_nodes, epochs=1000):
+        features_embedding = self._get_feature_embeddings(sub_nodes)
+
+        y_idx, labels = self.dataset.inside_labels()
+        gnn_model = WrappedGNN(
+            input_dim=features_embedding.shape[1],
+            hidden_dim=self.gnn_hidden_dim,
+            gnn_type=self.gnn_kind,
+            lr=self.gnn_lr,
+            weight_decay=self.gnn_weight_decay,
+            **self.gnn_args,
+        )
+        gnn_model.train()
+        for epoch in range(epochs):
+            gnn_model.zero_grad()
+            features_embedding_exclude_test = features_embedding[
+                self.dataset.mask
+            ].detach()
+            feat_emb, y_hat = gnn_model(
+                self.dataset.train_sub_graph, features_embedding_exclude_test
+            )
+
+            cy_loss = gnn_model.criterion(y_hat[y_idx], labels.unsqueeze(1).float())
+            cy_loss.backward()
+
+            gnn_model.optimizer.step()
+
+            if epoch % 100 == 0:
+                print(
+                    "Sub-epoch: {:04d}, cy_loss: {:.4f}".format(epoch, cy_loss.item())
+                )
+
+    def _get_feature_embeddings(self, sub_nodes):
+        features_embedding = None
+        loader = DataLoader(self.dataset, batch_size=None)
+        with torch.no_grad():
+            # ############# Attribute completion over graph######################
+            for (
+                sub_adj,
+                sub_node,
+                embeddings,
+                features,
+                keep_indices,
+                drop_indices,
+            ) in loader:
+                feature_src_ac, features_hat, transformed_feature = self.ac_model(
+                    sub_adj,
+                    embeddings,
+                    embeddings[keep_indices],
+                    features[keep_indices],
+                )
+
+                # I want to cry
+                if features_embedding is None:
+                    features_embedding = torch.zeros(
+                        (self.dataset.features.shape[0], transformed_feature.shape[1]),
+                    )
+
+                features_embedding[sub_node[drop_indices]] = feature_src_ac[
+                    drop_indices
+                ]
+                features_embedding[sub_node[keep_indices]] = transformed_feature
+        # 😿
+        return features_embedding

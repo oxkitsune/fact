@@ -166,7 +166,7 @@ class FairACDataset(Dataset):
         self.train_idx = train_idx
         self.labels = labels
 
-        self.train_adj = dgl.from_scipy(adj[mask][:, mask])
+        self.train_sub_graph = dgl.from_scipy(adj[mask][:, mask])
         self.features = features
         self.sens = sens
 
@@ -175,13 +175,14 @@ class FairACDataset(Dataset):
 
     # gets a sub node, can be enumerated through with a dataloader
     def __getitem__(self, index):
+        sub_adj = self.sub_adjs[index]
         sub_node = self.sub_nodes[index]
         embeddings = self.embeddings[sub_node]
         features = self.features[sub_node]
         keep_indices = self.sub_keep_indices[index]
         drop_indices = self.sub_drop_indices[index]
 
-        return sub_node, embeddings, features, keep_indices, drop_indices
+        return sub_adj, sub_node, embeddings, features, keep_indices, drop_indices
 
     def sample_ac(self):
         # sub_nodes[0][keep] is fully labeled
