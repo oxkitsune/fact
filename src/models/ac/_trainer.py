@@ -114,7 +114,7 @@ class Trainer:
             kept_features = features[keep_indices]
             dropped_features = features[drop_indices]
 
-            print("train embeddings shape", embeddings.shape)
+            # print("train embeddings shape", embeddings.shape)
             feature_src_re2, features_hat, transformed_feature = self.ac_model(
                 train_adj,
                 embeddings,
@@ -177,12 +177,13 @@ class Trainer:
             )
 
             if epoch % 100 == 0:
-                self._eval_with_gnn(train_adj)
+                self._eval_with_gnn()
 
-    def _eval_with_gnn(self, sub_nodes, epochs=1000):
-        features_embedding = self._get_feature_embeddings(sub_nodes)
+    def _eval_with_gnn(self, epochs=1000):
+        features_embedding = self._get_feature_embeddings()
 
         y_idx, labels = self.dataset.inside_labels()
+
         gnn_model = WrappedGNN(
             input_dim=features_embedding.shape[1],
             hidden_dim=self.gnn_hidden_dim,
@@ -191,13 +192,17 @@ class Trainer:
             weight_decay=self.gnn_weight_decay,
             **self.gnn_args,
         )
+
         gnn_model.train()
-        for epoch in range(epochs):
+        pbar = trange(epochs)
+        for epoch in pbar:
+            pbar.set_description(f"Sub-epoch {epoch}")
+
             gnn_model.zero_grad()
             features_embedding_exclude_test = features_embedding[
                 self.dataset.mask
             ].detach()
-            feat_emb, y_hat = gnn_model(
+            _feat_emb, y_hat = gnn_model(
                 self.dataset.train_sub_graph, features_embedding_exclude_test
             )
 
@@ -206,12 +211,11 @@ class Trainer:
 
             gnn_model.optimizer.step()
 
-            if epoch % 100 == 0:
-                print(
-                    "Sub-epoch: {:04d}, cy_loss: {:.4f}".format(epoch, cy_loss.item())
-                )
+            pbar.set_postfix_str(
+                f"Loss AC: {cy_loss.item():.04d}",
+            )
 
-    def _get_feature_embeddings(self, sub_nodes):
+    def _get_feature_embeddings(self):
         features_embedding = None
         loader = DataLoader(self.dataset, batch_size=None)
         with torch.no_grad():
