@@ -3,7 +3,14 @@ from dataset import NBA
 
 from pathlib import Path
 
-data_path = Path("dataset/NBA")
+import torch
+import numpy as np
+
+SEED = 42
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+data_path = Path("./dataset/NBA/")
 
 dataset = NBA(
     nodes_path=data_path / "nba.csv",
@@ -22,6 +29,6 @@ fair_ac = FairAC(
     num_sensitive_classes=1,
 )
 
-trainer = Trainer(ac_model=fair_ac, dataset=dataset)
+trainer = Trainer(ac_model=fair_ac, lambda2=0.7, dataset=dataset)
 trainer.pretrain(epochs=200)
-trainer.train(epochs=1000, acc=0.7, fairness=0.7)
+trainer.train(epochs=3000, acc=0.7, fairness=0.7)

@@ -266,8 +266,8 @@ def main():
     from utils import feature_norm
 
     # G = dgl.DGLGraph()
-    G = dgl.from_scipy(adj, device="cuda:0")
-    subG = dgl.from_scipy(sub_adj, device="cuda:0")
+    G = dgl.from_scipy(adj)
+    subG = dgl.from_scipy(sub_adj)
 
     if dataset == "nba":
         features = feature_norm(features)
@@ -280,9 +280,7 @@ def main():
     adj_mat = adj.toarray()
     adjTensor = torch.FloatTensor(adj_mat)
     sub_nodes = np.array_split(range(features.shape[0]), 4)
-    print("features shape", features.shape)
-    print("sub_nodes", sub_nodes.shape)
-    sub_nodes = [torch.tensor(s).cuda() for s in sub_nodes]
+    sub_nodes = [torch.tensor(s) for s in sub_nodes]
 
     transformed_feature_dim = args.transformed_feature_dim
     GNNmodel = GNN(nfeat=transformed_feature_dim, args=args)
@@ -296,7 +294,9 @@ def main():
         ACmodel = torch.load(args.AC_model_path)
         GNNmodel = torch.load(args.GNN_model_path)
     # mdotodel.estimator.load_state_dict(torch.load("./checkpoint/GCN_sens_{}_ns_{}".format(dataset, sens_number)))
-    if args.cuda:
+
+    # if args.cuda:
+    if False:
         GNNmodel.cuda()
         ACmodel.cuda()
         embedding = embedding.cuda()
@@ -330,9 +330,7 @@ def main():
     best_ar = 0
     best_ars_result = {}
 
-    features_embedding = torch.zeros(
-        (features.shape[0], transformed_feature_dim)
-    ).cuda()
+    features_embedding = torch.zeros((features.shape[0], transformed_feature_dim))
     for epoch in range(args.epochs):
         t = time.time()
         GNNmodel.train()
@@ -352,9 +350,7 @@ def main():
             features_train = features[ac_train_idx]
             sens_train = sens[ac_train_idx]
 
-            training_adj = adjTensor[ac_train_idx][:, ac_train_idx][
-                :, feat_keep_idx
-            ].cuda()
+            training_adj = adjTensor[ac_train_idx][:, ac_train_idx][:, feat_keep_idx]
             # print("adjTensor", adjTensor.shape)
             # print("adjTensor[ac_train_idx]", adjTensor[ac_train_idx].shape)
             # print(
@@ -363,6 +359,7 @@ def main():
             # )
             # print("training_adj", training_adj.shape)
             # break
+
             feature_src_re2, features_hat, transformed_feature = ACmodel(
                 training_adj,
                 embedding[ac_train_idx],
@@ -372,6 +369,7 @@ def main():
             loss_ac = ACmodel.loss(
                 features_train[feat_drop_idx], feature_src_re2[feat_drop_idx, :]
             )
+
             loss_reconstruction = F.pairwise_distance(
                 features_hat, features_train[feat_keep_idx], 2
             ).mean()
@@ -419,8 +417,14 @@ def main():
             Csen_loss = criterion(
                 sens_prediction_keep, sens_train[feat_keep_idx].unsqueeze(1).float()
             )
+
+            # print(Csen_adv_loss - Csen_loss)
+            # exit()
+
             # sensitive optimizer.step
             # AC optimizer.step
+            # exit()
+
             AC_loss = (
                 args.lambda2 * (Csen_adv_loss - Csen_loss)
                 + loss_reconstruction
@@ -430,6 +434,8 @@ def main():
             ACmodel.optimizer_AC.step()
 
             if epoch < args.epochs and epoch % 100 == 0:
+                # print(f"Sensitive loss {Csen_adv_loss - Csen_loss}")
+
                 print(
                     "Epoch: {:04d}, loss_ac: {:.4f}, loss_reconstruction: {:.4f}, Csen_loss: {:.4}, Csen_adv_loss: {:.4f}".format(
                         epoch,
@@ -440,7 +446,7 @@ def main():
                     )
                 )
 
-            if epoch > 1000 and epoch % 200 == 0 or epoch == args.epochs - 1:
+            if False and epoch > 1000 and epoch % 200 == 0 or epoch == args.epochs - 1:
                 with torch.no_grad():
                     # ############# Attribute completion over graph######################
                     for i, sub_node in enumerate(sub_nodes):
@@ -448,7 +454,7 @@ def main():
                         feat_drop_idx_sub = feat_drop_idx_sub_list[i]
 
                         feature_src_AC, features_hat, transformed_feature = ACmodel(
-                            subgraph_adj_list[i].cuda(),
+                            subgraph_adj_list[i],
                             embedding[sub_node],
                             embedding[sub_node][feat_keep_idx_sub],
                             features[sub_node][feat_keep_idx_sub],
@@ -459,7 +465,7 @@ def main():
                         features_embedding[
                             sub_node[feat_keep_idx_sub]
                         ] = transformed_feature
-                GNNmodel_inside = GNN(nfeat=transformed_feature_dim, args=args).cuda()
+                GNNmodel_inside = GNN(nfeat=transformed_feature_dim, args=args)
                 GNNmodel_inside.train()
                 for sub_epoch in range(1000):
                     features_embedding_exclude_test = features_embedding[

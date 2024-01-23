@@ -53,6 +53,7 @@ class GNN(nn.Module):
         y = self.classifier(z)
         return z, y
 
+
 # baseAC, used autoencoder to improve performance.
 class BaseAC(nn.Module):
     def __init__(self, feature_dim, transformed_feature_dim, emb_dim, args):
@@ -80,7 +81,9 @@ class BaseAC(nn.Module):
 
     def forward(self, biased_adj, emb_dest, emb_src, feature_src):
         transformed_features = self.fc(feature_src)
-        feature_src_re = self.hgnn_ac(biased_adj, emb_dest, emb_src, transformed_features)
+        feature_src_re = self.hgnn_ac(
+            biased_adj, emb_dest, emb_src, transformed_features
+        )
         feature_hat = self.fcdecoder(transformed_features)
         return feature_src_re, feature_hat
 
@@ -145,7 +148,9 @@ class FairAC2(nn.Module):
 
     def forward(self, biased_adj, emb_dest, emb_src, feature_src):
         transformed_features = self.encoder(feature_src)
-        feature_src_re = self.hgnn_ac(biased_adj, emb_dest, emb_src, transformed_features)
+        feature_src_re = self.hgnn_ac(
+            biased_adj, emb_dest, emb_src, transformed_features
+        )
         feature_hat = self.decoder(transformed_features)
         return feature_src_re, feature_hat, transformed_features
 
@@ -159,6 +164,9 @@ class FairAC2(nn.Module):
         return self.decoder(transformed_features)
 
     def loss(self, origin_feature, AC_feature):
+        # print(origin_feature.shape)
+        # print(AC_feature.shape)
+
         return F.pairwise_distance(
             self.encoder(origin_feature).detach(), AC_feature, 2
         ).mean()

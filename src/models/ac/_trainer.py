@@ -84,7 +84,7 @@ class Trainer:
             pbar.set_description(f"Epoch {epoch}")
 
             self.ac_model.train()
-            self.ac_optimizer.zero_grad()
+            self.ac_model.zero_grad()
 
             (
                 train_adj,
@@ -115,20 +115,22 @@ class Trainer:
             ).mean()
 
             # mitigate unfairness loss
-            sens_prediction = self.ac_model.sensitive_pred(transformed_feature.detach())
+            sens_prediction_detach = self.ac_model.sensitive_pred(
+                transformed_feature.detach()
+            )
             criterion = torch.nn.BCEWithLogitsLoss()
             # only update sensitive classifier
-            sens_loss = criterion(
-                sens_prediction, train_sens[keep_indices].unsqueeze(1).float()
+            Csen_loss = criterion(
+                sens_prediction_detach, train_sens[keep_indices].unsqueeze(1).float()
             )
 
             # sensitive optimizer.step
-            sens_loss.backward()
+            Csen_loss.backward()
             self.c_sen_optimizer.step()
 
             feature_src_re2[keep_indices] = transformed_feature
             sens_prediction = self.ac_model.sensitive_pred(
-                feature_src_re2[keep_indices]
+                feature_src_re2[drop_indices]
             )
             sens_confusion = (
                 torch.ones(
@@ -141,6 +143,7 @@ class Trainer:
             Csen_adv_loss = criterion(sens_prediction, sens_confusion)
 
             sens_prediction_keep = self.ac_model.sensitive_pred(transformed_feature)
+
             Csen_loss = criterion(
                 sens_prediction_keep, train_sens[keep_indices].unsqueeze(1).float()
             )
@@ -154,5 +157,5 @@ class Trainer:
             self.ac_optimizer.step()
 
             pbar.set_postfix_str(
-                f"Loss AC: {loss_ac.item():.4f}, Loss Reconstruction: {loss_reconstruction.item():.4f}, Loss Sensitive: {sens_loss.item():.4f}",
+                f"Loss AC: {loss_ac.item():.4f}, Loss Reconstruction: {loss_reconstruction.item():.4f}, Loss Sensitive: {(Csen_adv_loss - Csen_loss):.4f}",
             )
