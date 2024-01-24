@@ -107,12 +107,13 @@ class FairACDataset(Dataset):
         sample_number: int,
         test_idx: bool,
         normalize_features: bool,
+        data_seed: int,
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
         self.embeddings = torch.tensor(np.load(embedding_path))
 
-        adj, features, labels, sens, train_idx = load(
+        adj, features, labels, sens, train_idx, test_idx = load(
             nodes_path,
             edges_path,
             sens_attr,
@@ -122,7 +123,8 @@ class FairACDataset(Dataset):
             test_idx,
             # TODO: fact check
             # we want to do shuffling in the dataloader
-            shuffle=False,
+            # shuffle=False,
+            data_seed=data_seed,
         )
 
         if normalize_features:
@@ -164,8 +166,10 @@ class FairACDataset(Dataset):
 
         self.y_idx = indices[train_idx]
         self.train_idx = train_idx
+        self.test_idx = test_idx
         self.labels = labels
 
+        self.graph = dgl.from_scipy(adj)
         self.train_sub_graph = dgl.from_scipy(adj[mask][:, mask])
         self.features = features
         self.sens = sens
@@ -201,7 +205,11 @@ class FairACDataset(Dataset):
         return train_adj, embeddings, features, sens, keep_indices, drop_indices
 
     def inside_labels(self):
-        return self.y_idx, self.labels[self.train_idx]
+        return (
+            self.y_idx,
+            self.train_idx,
+            self.labels,
+        )
 
 
 class NBA(FairACDataset):
@@ -218,6 +226,7 @@ class NBA(FairACDataset):
         sample_number=1000,
         test_idx=True,
         normalize_features=True,
+        data_seed=42,
     ):
         super().__init__(
             nodes_path,
@@ -231,6 +240,7 @@ class NBA(FairACDataset):
             sample_number,
             test_idx,
             normalize_features,
+            data_seed,
         )
 
 
@@ -248,6 +258,7 @@ class PokecN(FairACDataset):
         sample_number=1000,
         test_idx=False,
         normalize_features=True,
+        data_seed=20,
     ):
         super().__init__(
             nodes_path,
@@ -261,6 +272,7 @@ class PokecN(FairACDataset):
             sample_number,
             test_idx,
             normalize_features,
+            data_seed,
         )
 
 
@@ -278,6 +290,7 @@ class PokecZ(FairACDataset):
         sample_number=1000,
         test_idx=False,
         normalize_features=True,
+        data_seed=20,
     ):
         super().__init__(
             nodes_path,
@@ -291,6 +304,7 @@ class PokecZ(FairACDataset):
             sample_number,
             test_idx,
             normalize_features,
+            data_seed,
         )
 
 
@@ -302,7 +316,8 @@ def load(
     label_number=1000,
     sens_number=500,
     test_idx=False,
-    shuffle=True,
+    # shuffle=True,
+    data_seed=19,
 ):
     """Load data"""
     idx_features_labels = pd.read_csv(nodes_path)
@@ -336,10 +351,11 @@ def load(
     features = torch.tensor(np.array(features.todense()))
     labels = torch.tensor(labels)
 
-    label_idx = np.where(labels >= 0)[0]
+    import random
 
-    if shuffle:
-        np.random.shuffle(label_idx)
+    random.seed(data_seed)
+    label_idx = np.where(labels >= 0)[0]
+    random.shuffle(label_idx)
 
     idx_train = label_idx[: min(int(0.5 * len(label_idx)), label_number)]
     idx_val = label_idx[int(0.5 * len(label_idx)) : int(0.75 * len(label_idx))]
@@ -356,8 +372,8 @@ def load(
     sens = torch.tensor(sens)
     idx_sens_train = list(sens_idx - set(idx_val) - set(idx_test))
 
-    if shuffle:
-        np.random.shuffle(idx_sens_train)
+    random.seed(data_seed)
+    random.shuffle(idx_sens_train)
 
     idx_sens_train = torch.tensor(idx_sens_train[:sens_number])
 
@@ -365,7 +381,7 @@ def load(
     idx_val = torch.tensor(idx_val)
     idx_test = torch.tensor(idx_test)
 
-    return adj, features, labels, sens, idx_train
+    return adj, features, labels, sens, idx_train, idx_test
 
 
 if __name__ == "__main__":

@@ -2,23 +2,47 @@ from itertools import chain
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from typing import Optional, Literal
 
+import tqdm
 from tqdm import trange
 from models.gnn import GNNKind, WrappedGNN
 
 from sklearn.metrics import roc_auc_score
 from ._metric import fair_metric, accuracy, Metrics
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
+import json
 
 
 @dataclass
 class BestMetrics:
-    best_fair: Metrics
-    acc: Metrics
-    auc: Metrics
-    ar: Metrics
+    best_fair: Optional[Metrics]
+    acc: Optional[Metrics]
+    auc: Optional[Metrics]
+    ar: Optional[Metrics]
+
+    def update_metrics(self, metrics: Metrics, min_acc: float, min_roc: float):
+        if self.acc is None or metrics.acc > self.acc.acc:
+            self.acc = metrics
+
+        if self.auc is None or metrics.roc > self.auc.roc:
+            self.auc = metrics
+
+        if self.ar is None or metrics.acc + metrics.roc > self.ar.acc + self.ar.roc:
+            self.ar = metrics
+
+        if (
+            (
+                self.best_fair is None
+                or metrics.parity + metrics.equality
+                < self.best_fair.parity + self.best_fair.equality
+            )
+            and metrics.acc >= min_acc
+            and metrics.roc >= min_roc
+        ):
+            self.best_fair = metrics
 
 
 class Trainer:
@@ -47,7 +71,7 @@ class Trainer:
         self.gnn_weight_decay = gnn_weight_decay
         self.gnn_args = gnn_args
         self.log_dir = log_dir
-        self.best_metrics = None
+        self.best_metrics = BestMetrics(None, None, None, None)
         self.min_acc = min_acc
         self.min_roc = min_roc
 
@@ -75,6 +99,7 @@ class Trainer:
 
             self.ac_model.train()
             self.ac_optimizer.zero_grad()
+            self.c_sen_optimizer.zero_grad()
 
             (
                 train_adj,
@@ -104,6 +129,9 @@ class Trainer:
                 features_hat, kept_features, 2
             ).mean()
 
+            pbar.write(
+                f"[{epoch}] Loss AC: {loss_ac.item():.4f}, Loss Reconstruction: {loss_reconstruction.item():.4f}",
+            )
             pbar.set_postfix_str(
                 f"Loss AC: {loss_ac.item():.4f}, Loss Reconstruction: {loss_reconstruction.item():.4f}",
             )
@@ -124,7 +152,8 @@ class Trainer:
             pbar.set_description(f"Epoch {epoch}")
 
             self.ac_model.train()
-            self.ac_model.zero_grad()
+            self.ac_optimizer.zero_grad()
+            self.c_sen_optimizer.zero_grad()
 
             (
                 train_adj,
@@ -139,7 +168,6 @@ class Trainer:
             kept_features = features[keep_indices]
             dropped_features = features[drop_indices]
 
-            # print("train embeddings shape", embeddings.shape)
             feature_src_re2, features_hat, transformed_feature = self.ac_model(
                 train_adj,
                 embeddings,
@@ -197,31 +225,57 @@ class Trainer:
             total_loss.backward()
             self.ac_optimizer.step()
 
+            pbar.write(
+                "[{}] Loss AC: {:.4f} Loss Reconstruction: {:.4f}".format(
+                    epoch, loss_ac.item(), loss_reconstruction.item()
+                )
+            )
             pbar.set_postfix_str(
                 f"Loss AC: {loss_ac.item():.4f}, Loss Reconstruction: {loss_reconstruction.item():.4f}, Loss Sensitive: {(Csen_adv_loss - Csen_loss):.4f}",
             )
 
             if (
-                epoch > val_start_epoch and val_epoch_interval % 100 == 0
+                epoch > val_start_epoch and epoch % val_epoch_interval == 0
             ) or epoch == epochs - 1:
-                self._eval_with_gnn(epoch)
+                self._eval_with_gnn(epoch, progress_bar=progress_bar)
 
-        if self.best_metrics is None:
+        if (
+            self.best_metrics.best_fair.acc < self.min_acc
+            or self.best_metrics.best_fair.roc < self.min_roc
+        ):
             print("Please set smaller acc/roc thresholds!")
         else:
             print("Finished training!")
-            print()
-            print("Best fair model:")
-            print(f"\tacc: {self.best_metrics.best_fair.acc}")
-            print(f"\troc: {self.best_metrics.best_fair.roc}")
-            print(f"\tparity: {self.best_metrics.best_fair.parity}")
-            print(f"\tequality: {self.best_metrics.best_fair.equality}")
 
-    def _eval_with_gnn(self, curr_epoch, epochs=1000):
+        print()
+        print("Best fair model:")
+        print(f"\tacc: {self.best_metrics.best_fair.acc:.04f}")
+        print(f"\troc: {self.best_metrics.best_fair.roc:.04f}")
+        print(f"\tparity: {self.best_metrics.best_fair.parity:.04f}")
+        print(f"\tequality: {self.best_metrics.best_fair.equality:.04f}")
+
+        print()
+        print("Best acc model:")
+        print(f"\tacc: {self.best_metrics.acc.acc:.04f}")
+        print(f"\troc: {self.best_metrics.acc.roc:.04f}")
+        print(f"\tparity: {self.best_metrics.acc.parity:.04f}")
+        print(f"\tequality: {self.best_metrics.acc.equality:.04f}")
+
+        print()
+        print("Best auc model:")
+        print(f"\tacc: {self.best_metrics.auc.acc:.04f}")
+        print(f"\troc: {self.best_metrics.auc.roc:.04f}")
+        print(f"\tparity: {self.best_metrics.auc.parity:.04f}")
+        print(f"\tequality: {self.best_metrics.auc.equality:.04f}")
+
+        with open(self.log_dir / "best_metrics.json", "a") as f:
+            json.dump(asdict(self.best_metrics), f, indent=4)
+
+    def _eval_with_gnn(self, curr_epoch, epochs=1000, progress_bar: bool = True):
         features_embedding = self._get_feature_embeddings()
         features_embedding_exclude_test = features_embedding[self.dataset.mask]
 
-        y_idx, labels = self.dataset.inside_labels()
+        y_idx, train_idx, labels = self.dataset.inside_labels()
 
         gnn_model = WrappedGNN(
             input_dim=features_embedding.shape[1],
@@ -232,17 +286,19 @@ class Trainer:
             **self.gnn_args,
         )
 
-        gnn_model.train()
-        pbar = trange(epochs, leave=False)
+        pbar = trange(epochs, leave=False, disable=not progress_bar)
         for epoch in pbar:
+            gnn_model.train()
             pbar.set_description(f"Sub-epoch {epoch}")
 
-            gnn_model.zero_grad()
+            gnn_model.optimizer.zero_grad()
             _feat_emb, y_hat = gnn_model(
                 self.dataset.train_sub_graph, features_embedding_exclude_test
             )
 
-            cy_loss = gnn_model.criterion(y_hat[y_idx], labels.unsqueeze(1).float())
+            cy_loss = gnn_model.criterion(
+                y_hat[y_idx], labels[train_idx].unsqueeze(1).float()
+            )
             cy_loss.backward()
 
             gnn_model.optimizer.step()
@@ -251,48 +307,42 @@ class Trainer:
                 f"Loss AC: {cy_loss.item():.04f}",
             )
 
-        gnn_model.eval()
+            gnn_model.eval()
+            self.ac_model.eval()
+            with torch.no_grad():
+                test_idx = self.dataset.test_idx
 
-        with torch.no_grad():
-            print("Mask:", self.dataset.mask)
-            print("Inverted mask:", self.dataset.mask.invert())
+                _, output = gnn_model(self.dataset.graph, features_embedding)
+                acc_test = accuracy(output[test_idx], labels[test_idx])
 
-            mask_test = self.dataset.mask.invert()
+                roc_test = roc_auc_score(
+                    labels[test_idx].cpu().numpy(),
+                    output[test_idx].detach().cpu().numpy(),
+                )
+                parity, equality = fair_metric(
+                    output, test_idx, labels, self.dataset.sens
+                )
 
-            _, output = gnn_model(self.dataset.train_sub_graph, features_embedding)
-            acc_test = accuracy(output[mask_test], labels[mask_test])
-            roc_test = roc_auc_score(
-                labels[mask_test].cpu().numpy(),
-                output[mask_test].detach().cpu().numpy(),
-            )
-            parity, equality = fair_metric(output, mask_test, labels, self.dataset.sens)
+                result = Metrics(acc_test.item(), roc_test, parity, equality)
 
-            result = Metrics(acc_test.item(), roc_test, parity, equality)
+                if (
+                    (
+                        self.best_metrics.best_fair is None
+                        or result.parity + result.equality
+                        < self.best_metrics.best_fair.parity
+                        + self.best_metrics.best_fair.equality
+                    )
+                    and result.acc >= self.min_acc
+                    and result.roc >= self.min_roc
+                ):
+                    torch.save(
+                        gnn_model, self.log_dir / f"gnn_epoch{curr_epoch:04d}.pt"
+                    )
+                    torch.save(
+                        self.ac_model, self.log_dir / f"ac_epoch{curr_epoch:04d}.pt"
+                    )
 
-            if result.acc > self.best_metrics.acc or self.best_metrics.acc is None:
-                self.best_metrics.acc = result
-
-            if result.roc > self.best_metrics.auc or self.best_metrics.auc is None:
-                self.best_metrics.auc = result
-
-            if (
-                result.acc + result.roc > self.best_metrics.ar
-                or self.best_metrics.ar is None
-            ):
-                self.best_metrics.ar = result
-
-            best_fair = (
-                result.parity + result.equality
-                < self.best_metrics.best_fair.parity
-                + self.best_metrics.best_fair.equality
-            )
-            if (
-                best_fair and result.acc > self.min_acc and result.roc > self.min_roc
-            ) or self.best_metrics.best_fair is None:
-                self.best_metrics.best_fair = result
-
-                torch.save(gnn_model, self.log_dir / f"gnn_epoch{curr_epoch:04d}.pt")
-                torch.save(self.ac_model, self.log_dir / f"ac_epoch{curr_epoch:04d}.pt")
+                self.best_metrics.update_metrics(result, self.min_acc, self.min_roc)
 
     def _get_feature_embeddings(self):
         features_embedding = None

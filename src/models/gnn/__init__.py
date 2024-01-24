@@ -2,6 +2,8 @@ from ._gat import GATBody
 from ._gcn import GCNBody
 from ._sage import SAGEBody
 
+from itertools import chain
+
 import torch
 from torch import nn
 from typing import Literal
@@ -56,9 +58,9 @@ class WrappedGNN(nn.Module):
             gnn_type, input_dim=input_dim, hidden_dim=hidden_dim, **kwargs
         )
         self.classifier = nn.Linear(hidden_dim, 1)
-        self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=lr, weight_decay=weight_decay
-        )
+
+        gnn_params = chain(self.gnn.parameters(), self.classifier.parameters())
+        self.optimizer = torch.optim.Adam(gnn_params, lr=lr, weight_decay=weight_decay)
         self.criterion = nn.BCEWithLogitsLoss()
 
     def forward(self, g, x):

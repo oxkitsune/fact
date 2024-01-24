@@ -23,6 +23,8 @@ class HGNNAC(nn.Module):
             _AttentionLayer(input_dim, hidden_dim, activation, dropout)
             for _ in range(num_heads)
         ]
+        for i, attention in enumerate(self.attentions):
+            self.add_module("attention_{}".format(i), attention)
 
     def forward(self, biased_adj, emb_dest, emb_src, feature_src):
         biased_adj = F.dropout(biased_adj, self.dropout, training=self.training)
