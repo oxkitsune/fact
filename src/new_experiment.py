@@ -1,5 +1,4 @@
 from models.ac import FairAC, Trainer
-from models.gnn import GCNBody
 from dataset import NBA
 
 from pathlib import Path
@@ -12,6 +11,7 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 data_path = Path("./dataset/NBA/")
+log_dir = Path("./logs/test_run")
 
 dataset = NBA(
     nodes_path=data_path / "nba.csv",
@@ -39,7 +39,10 @@ trainer = Trainer(
     gnn_lr=1e-3,
     gnn_weight_decay=1e-5,
     gnn_args={"dropout": 0.5},
+    log_dir=log_dir,
+    min_acc=0.7,
+    min_roc=0.7,
 )
 
 trainer.pretrain(epochs=200)
-trainer.train(epochs=3000)
+trainer.train(val_start_epoch=800, val_epoch_interval=200, epochs=2800)
