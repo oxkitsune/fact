@@ -248,7 +248,7 @@ class Trainer:
             gnn_model.optimizer.step()
 
             pbar.set_postfix_str(
-                f"Loss AC: {cy_loss.item():.04d}",
+                f"Loss AC: {cy_loss.item():.04f}",
             )
 
         gnn_model.eval()
