@@ -235,7 +235,6 @@ def main():
         test_idx = True
         embedding = np.load("nba_embedding10.npy")  # embedding is produced by Deep Walk
         embedding = torch.tensor(embedding)
-    print(dataset)
 
     adj, features, labels, idx_train, _, idx_test, sens, _ = load_pokec(
         dataset,
@@ -446,7 +445,8 @@ def main():
                     )
                 )
 
-            if False and epoch > 1000 and epoch % 200 == 0 or epoch == args.epochs - 1:
+            if True:
+                # if epoch > 1 and epoch % 200 == 0 or epoch == args.epochs - 1:
                 with torch.no_grad():
                     # ############# Attribute completion over graph######################
                     for i, sub_node in enumerate(sub_nodes):
@@ -467,7 +467,7 @@ def main():
                         ] = transformed_feature
                 GNNmodel_inside = GNN(nfeat=transformed_feature_dim, args=args)
                 GNNmodel_inside.train()
-                for sub_epoch in range(1000):
+                for sub_epoch in range(3):
                     features_embedding_exclude_test = features_embedding[
                         exclude_test
                     ].detach()
@@ -508,6 +508,7 @@ def main():
                     with torch.no_grad():
                         _, output = GNNmodel_inside(G, features_embedding)
                         acc_test = accuracy(output[idx_test], labels[idx_test])
+
                         roc_test = roc_auc_score(
                             labels[idx_test].cpu().numpy(),
                             output[idx_test].detach().cpu().numpy(),
