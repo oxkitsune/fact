@@ -108,21 +108,19 @@ class FairACDataset(Dataset):
         test_idx: bool,
         normalize_features: bool,
         data_seed: int,
-        device
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
-        self.embeddings = torch.tensor(np.load(embedding_path), device=device)
-        self.device = device
+        self.embeddings = torch.tensor(np.load(embedding_path))
 
         adj, features, labels, sens, train_idx, test_idx = load(
             nodes_path,
             edges_path,
             sens_attr,
             predict_attr,
-            device,
             label_number,
             sens_number,
+            test_idx,
             # TODO: fact check
             # we want to do shuffling in the dataloader
             # shuffle=False,
@@ -136,7 +134,7 @@ class FairACDataset(Dataset):
         if sens_attr:
             sens[sens > 0] = 1
 
-        self.adj = torch.tensor(adj.toarray(), dtype=torch.float, device=device)
+        self.adj = torch.tensor(adj.toarray(), dtype=torch.float)
         self.sub_nodes = list(torch.chunk(torch.arange(features.shape[0]), 4))
 
         # create fair subgraph adj for each graph
@@ -147,11 +145,11 @@ class FairACDataset(Dataset):
             keep_indices, drop_indices = train_test_split(
                 np.arange(len(sub_node)), test_size=feat_drop_rate
             )
-            self.sub_keep_indices.append(torch.tensor(keep_indices, device=device))
-            self.sub_drop_indices.append(torch.tensor(drop_indices, device=device))
+            self.sub_keep_indices.append(keep_indices)
+            self.sub_drop_indices.append(drop_indices)
             self.sub_adjs.append(self.adj[sub_node][:, sub_node][:, keep_indices])
 
-        mask = torch.zeros(adj.shape[1]).to(device=device, dtype=torch.bool)
+        mask = torch.zeros(adj.shape[1]).bool()
         mask[train_idx] = True
 
         # mask for removing test values
@@ -164,16 +162,15 @@ class FairACDataset(Dataset):
             indices.append(counter)
             if e:
                 counter += 1
-        indices = torch.tensor(indices, device=device, dtype=torch.long)
+        indices = torch.tensor(indices)
 
         self.y_idx = indices[train_idx]
         self.train_idx = train_idx
         self.test_idx = test_idx
         self.labels = labels
 
-        print("adj type", type(self.adj), "adj shape", self.adj.shape)
-        self.graph = dgl.from_scipy(adj, device=device)
-        self.train_sub_graph = dgl.from_scipy(adj[mask.cpu()][:, mask.cpu()], device=device)
+        self.graph = dgl.from_scipy(adj)
+        self.train_sub_graph = dgl.from_scipy(adj[mask][:, mask])
         self.features = features
         self.sens = sens
 
@@ -196,13 +193,9 @@ class FairACDataset(Dataset):
         ac_train_indices = self.sub_nodes[0][self.sub_keep_indices[0]][
             : self.sample_number
         ]
-
         keep_indices, drop_indices = train_test_split(
             np.arange(ac_train_indices.shape[0]), test_size=self.feat_drop_rate
         )
-
-        keep_indices = torch.tensor(keep_indices, device=self.device)
-        drop_indices = torch.tensor(drop_indices, device=self.device)
 
         train_adj = self.adj[ac_train_indices][:, ac_train_indices][:, keep_indices]
         embeddings = self.embeddings[ac_train_indices]
@@ -226,7 +219,6 @@ class NBA(FairACDataset):
         edges_path: Path,
         embedding_path: Path,
         feat_drop_rate: float,
-        device,
         sens_attr="country",
         predict_attr="SALARY",
         label_number=100,
@@ -249,7 +241,6 @@ class NBA(FairACDataset):
             test_idx,
             normalize_features,
             data_seed,
-            device=device
         )
 
 
@@ -260,7 +251,6 @@ class PokecN(FairACDataset):
         edges_path: Path,
         embedding_path: Path,
         feat_drop_rate: float,
-        device,
         sens_attr="region",
         predict_attr="I_am_working_in_field",
         label_number=100,
@@ -283,7 +273,6 @@ class PokecN(FairACDataset):
             test_idx,
             normalize_features,
             data_seed,
-            device=device
         )
 
 
@@ -294,7 +283,6 @@ class PokecZ(FairACDataset):
         edges_path: Path,
         embedding_path: Path,
         feat_drop_rate: float,
-        device,
         sens_attr="region",
         predict_attr="I_am_working_in_field",
         label_number=100,
@@ -317,7 +305,6 @@ class PokecZ(FairACDataset):
             test_idx,
             normalize_features,
             data_seed,
-            device=device
         )
 
 
@@ -326,7 +313,6 @@ def load(
     edges_path: Path,
     sens_attr: str,
     predict_attr: str,
-    device,
     label_number=1000,
     sens_number=500,
     test_idx=False,
@@ -362,13 +348,13 @@ def load(
     adj = adj + adj.T.multiply(adj.T > adj) - adj.multiply(adj.T > adj)
     adj = adj + sp.eye(adj.shape[0])
 
-    features = torch.tensor(np.array(features.todense()), device=device)
-    labels = torch.tensor(labels, device=device)
+    features = torch.tensor(np.array(features.todense()))
+    labels = torch.tensor(labels)
 
     import random
 
     random.seed(data_seed)
-    label_idx = np.where(labels.cpu() >= 0)[0]
+    label_idx = np.where(labels >= 0)[0]
     random.shuffle(label_idx)
 
     idx_train = label_idx[: min(int(0.5 * len(label_idx)), label_number)]
@@ -383,17 +369,17 @@ def load(
 
     sens_idx = set(np.where(sens >= 0)[0])
     idx_test = np.asarray(list(sens_idx & set(idx_test)))
-    sens = torch.tensor(sens, device=device)
+    sens = torch.tensor(sens)
     idx_sens_train = list(sens_idx - set(idx_val) - set(idx_test))
 
     random.seed(data_seed)
     random.shuffle(idx_sens_train)
 
-    idx_sens_train = torch.tensor(idx_sens_train[:sens_number], device=device)
+    idx_sens_train = torch.tensor(idx_sens_train[:sens_number])
 
-    idx_train = torch.tensor(idx_train, device=device)
-    idx_val = torch.tensor(idx_val, device=device)
-    idx_test = torch.tensor(idx_test, device=device)
+    idx_train = torch.tensor(idx_train)
+    idx_val = torch.tensor(idx_val)
+    idx_test = torch.tensor(idx_test)
 
     return adj, features, labels, sens, idx_train, idx_test
 
