@@ -111,7 +111,7 @@ class FairACDataset(Dataset):
         normalize_features: bool,
         data_seed: int,
         device: str,
-        remove_user_id=False,,
+        remove_user_id=False,
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
@@ -259,7 +259,7 @@ class NBA(FairACDataset):
             normalize_features,
             data_seed,
             device=device,
-            remove_user_id=True,,
+            remove_user_id=True,
         )
 
 
@@ -294,7 +294,7 @@ class PokecN(FairACDataset):
             normalize_features,
             data_seed,
             device=device,
-            remove_user_id=True,,
+            remove_user_id=True,
         )
 
 
@@ -329,7 +329,7 @@ class PokecZ(FairACDataset):
             normalize_features,
             data_seed,
             device=device,
-            remove_user_id=True,,
+            remove_user_id=True,
         )
 
 
@@ -591,3 +591,4 @@ if __name__ == "__main__":
 
     # print(dataset.sample_ac())
     # print(dataset.inside_labels())
+    pass
