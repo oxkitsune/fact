@@ -108,7 +108,7 @@ class FairACDataset(Dataset):
         test_idx: bool,
         normalize_features: bool,
         data_seed: int,
-        device
+        device,
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
@@ -136,7 +136,7 @@ class FairACDataset(Dataset):
         if sens_attr:
             sens[sens > 0] = 1
 
-        self.adj = torch.tensor(adj.toarray(), dtype=torch.float, device=device)
+        self.adj = torch.tensor(adj.toarray(), dtype=torch.float).to(device)
         self.sub_nodes = list(torch.chunk(torch.arange(features.shape[0]), 4))
 
         # create fair subgraph adj for each graph
@@ -149,7 +149,12 @@ class FairACDataset(Dataset):
             )
             self.sub_keep_indices.append(torch.tensor(keep_indices, device=device))
             self.sub_drop_indices.append(torch.tensor(drop_indices, device=device))
-            self.sub_adjs.append(self.adj[sub_node][:, sub_node][:, keep_indices])
+            self.sub_adjs.append(
+                torch.tensor(
+                    self.adj[sub_node][:, sub_node][:, keep_indices],
+                    device="cpu",  # needs to be on cpu, due to memory limits
+                )
+            )
 
         mask = torch.zeros(adj.shape[1]).to(device=device, dtype=torch.bool)
         mask[train_idx] = True
@@ -171,9 +176,10 @@ class FairACDataset(Dataset):
         self.test_idx = test_idx
         self.labels = labels
 
-        print("adj type", type(self.adj), "adj shape", self.adj.shape)
         self.graph = dgl.from_scipy(adj, device=device)
-        self.train_sub_graph = dgl.from_scipy(adj[mask.cpu()][:, mask.cpu()], device=device)
+        self.train_sub_graph = dgl.from_scipy(
+            adj[mask.cpu()][:, mask.cpu()], device=device
+        )
         self.features = features
         self.sens = sens
 
@@ -182,12 +188,13 @@ class FairACDataset(Dataset):
 
     # gets a sub node, can be enumerated through with a dataloader
     def __getitem__(self, index):
-        sub_adj = self.sub_adjs[index]
         sub_node = self.sub_nodes[index]
-        embeddings = self.embeddings[sub_node]
-        features = self.features[sub_node]
         keep_indices = self.sub_keep_indices[index]
         drop_indices = self.sub_drop_indices[index]
+
+        sub_adj = self.sub_adjs[index].to(self.device)
+        embeddings = self.embeddings[sub_node]
+        features = self.features[sub_node]
 
         return sub_adj, sub_node, embeddings, features, keep_indices, drop_indices
 
@@ -249,7 +256,7 @@ class NBA(FairACDataset):
             test_idx,
             normalize_features,
             data_seed,
-            device=device
+            device=device,
         )
 
 
@@ -283,7 +290,7 @@ class PokecN(FairACDataset):
             test_idx,
             normalize_features,
             data_seed,
-            device=device
+            device=device,
         )
 
 
@@ -317,7 +324,7 @@ class PokecZ(FairACDataset):
             test_idx,
             normalize_features,
             data_seed,
-            device=device
+            device=device,
         )
 
 
