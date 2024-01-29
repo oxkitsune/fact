@@ -11,6 +11,8 @@ import dgl
 
 from pathlib import Path
 
+import requests
+
 # if args.dataset != "nba":
 #     # if args.dataset == "pokec_z":
 #     #     dataset = "region_job"
@@ -108,7 +110,8 @@ class FairACDataset(Dataset):
         test_idx: bool,
         normalize_features: bool,
         data_seed: int,
-        device,
+        device: str,
+        remove_user_id=False,,
     ):
         self.feat_drop_rate = feat_drop_rate
         self.sample_number = sample_number
@@ -123,10 +126,9 @@ class FairACDataset(Dataset):
             device,
             label_number,
             sens_number,
-            # TODO: fact check
-            # we want to do shuffling in the dataloader
             # shuffle=False,
             data_seed=data_seed,
+            remove_user_id=remove_user_id,
         )
 
         if normalize_features:
@@ -257,6 +259,7 @@ class NBA(FairACDataset):
             normalize_features,
             data_seed,
             device=device,
+            remove_user_id=True,,
         )
 
 
@@ -274,7 +277,7 @@ class PokecN(FairACDataset):
         sens_number=50,
         sample_number=1000,
         test_idx=False,
-        normalize_features=True,
+        normalize_features=False,
         data_seed=20,
     ):
         super().__init__(
@@ -291,6 +294,7 @@ class PokecN(FairACDataset):
             normalize_features,
             data_seed,
             device=device,
+            remove_user_id=True,,
         )
 
 
@@ -308,9 +312,66 @@ class PokecZ(FairACDataset):
         sens_number=50,
         sample_number=1000,
         test_idx=False,
-        normalize_features=True,
+        normalize_features=False,
         data_seed=20,
     ):
+        super().__init__(
+            nodes_path,
+            edges_path,
+            embedding_path,
+            feat_drop_rate,
+            sens_attr,
+            predict_attr,
+            label_number,
+            sens_number,
+            sample_number,
+            test_idx,
+            normalize_features,
+            data_seed,
+            device=device,
+            remove_user_id=True,,
+        )
+
+
+class Recidivism(FairACDataset):
+    def __init__(
+        self,
+        feat_drop_rate: float,
+        device,
+        embedding_path: Path,
+        download: bool = True,
+        nodes_path: Path = None,
+        edges_path: Path = None,
+        sens_attr="WHITE",
+        predict_attr="RECID",
+        label_number=100,
+        sens_number=50,
+        sample_number=1000,
+        test_idx=False,
+        normalize_features=False,
+        data_seed=20,
+    ):
+        if download:
+            dataset_dir = Path("./dataset/bail/")
+
+            if not dataset_dir.exists():
+                dataset_dir.mkdir(parents=True, exist_ok=True)
+
+            nodes_name = "bail.csv"
+            edges_name = "bail_edges.txt"
+
+            nodes_path = dataset_dir / nodes_name
+            edges_path = dataset_dir / edges_name
+
+            # check if the dataset exists
+            if not nodes_path.exists():
+                url = "https://raw.githubusercontent.com/PyGDebias-Team/data/main/2023-7-26/bail/bail.csv"
+                download_dataset(dataset_dir, url, nodes_name)
+
+            if not edges_path.exists():
+                url = "https://raw.githubusercontent.com/PyGDebias-Team/data/main/2023-7-26/bail/bail_edges.txt"
+                download_dataset(dataset_dir, url, edges_name)
+
         super().__init__(
             nodes_path,
             edges_path,
@@ -328,6 +389,72 @@ class PokecZ(FairACDataset):
         )
 
 
+class Credit(FairACDataset):
+    def __init__(
+        self,
+        feat_drop_rate: float,
+        device,
+        embedding_path: Path,
+        download: bool = True,
+        nodes_path: Path = None,
+        edges_path: Path = None,
+        sens_attr="Age",
+        predict_attr="NoDefaultNextMonth",
+        label_number=6000,
+        sens_number=500,
+        sample_number=1000,
+        test_idx=False,
+        normalize_features=False,
+        data_seed=20,
+    ):
+        if download:
+            dataset_dir = Path("./dataset/credit/")
+
+            if not dataset_dir.exists():
+                dataset_dir.mkdir(parents=True, exist_ok=True)
+
+            nodes_name = "credit.csv"
+            edges_name = "credit_edges.txt"
+
+            nodes_path = dataset_dir / nodes_name
+            edges_path = dataset_dir / edges_name
+
+            # check if the dataset exists
+            if not nodes_path.exists():
+                url = "https://raw.githubusercontent.com/PyGDebias-Team/data/main/2023-7-26/credit/credit.csv"
+                download_dataset(dataset_dir, url, nodes_name)
+
+            if not edges_path.exists():
+                url = "https://raw.githubusercontent.com/PyGDebias-Team/data/main/2023-7-26/bail/bail_edges.txt"
+                download_dataset(dataset_dir, url, edges_name)
+
+        super().__init__(
+            nodes_path,
+            edges_path,
+            embedding_path,
+            feat_drop_rate,
+            sens_attr,
+            predict_attr,
+            label_number,
+            sens_number,
+            sample_number,
+            test_idx,
+            normalize_features,
+            data_seed,
+            device=device,
+        )
+
+
+def download_dataset(path: Path, url: str, filename: str):
+    """Download file from url to path/filename"""
+    r = requests.get(url)
+    assert r.status_code == 200
+    with open(path / filename, "wb") as f:
+        f.write(r.content)
+
+    print(f"Downloaded {filename}")
+
+
 def load(
     nodes_path: Path,
     edges_path: Path,
@@ -339,12 +466,15 @@ def load(
     test_idx=False,
     # shuffle=True,
     data_seed=19,
+    remove_user_id=False,
 ):
     """Load data"""
     idx_features_labels = pd.read_csv(nodes_path)
 
     header = list(idx_features_labels.columns)
-    header.remove("user_id")
+    if remove_user_id:
+        header.remove("user_id")
+
     header.remove(sens_attr)
     header.remove(predict_attr)
 
@@ -352,13 +482,25 @@ def load(
     labels = idx_features_labels[predict_attr].values
 
     # build graph
-    idx = np.array(idx_features_labels["user_id"], dtype=int)
-    idx_map = {j: i for i, j in enumerate(idx)}
-    edges_unordered = np.genfromtxt(os.path.join(edges_path), dtype=int)
+    if remove_user_id:
+        idx = np.array(idx_features_labels["user_id"], dtype=int)
+        idx_map = {j: i for i, j in enumerate(idx)}
+        edges_unordered = np.genfromtxt(os.path.join(edges_path), dtype=int)
+        edges = (
+            np.array(list(map(idx_map.get, edges_unordered.flatten())), dtype=int)
+            # .astype(int)
+            .reshape(edges_unordered.shape)
+        )
+    else:
+        idx = np.arange(features.shape[0])
+        idx_map = {j: i for i, j in enumerate(idx)}
+        edges_unordered = np.genfromtxt(os.path.join(edges_path)).astype(int)
+        edges = (
+            np.array(list(map(idx_map.get, edges_unordered.flatten())))
+            .astype(int)
+            .reshape(edges_unordered.shape)
+        )
 
-    edges = np.array(
-        list(map(idx_map.get, edges_unordered.flatten())), dtype=int
-    ).reshape(edges_unordered.shape)
     adj = sp.coo_matrix(
         (np.ones(edges.shape[0]), (edges[:, 0], edges[:, 1])),
         shape=(labels.shape[0], labels.shape[0]),
@@ -411,21 +553,41 @@ if __name__ == "__main__":
     #     "./dataset/NBA/nba_relationship.txt",
     #     "./src/nba_embedding10.npy",
     #     feat_drop_rate=0.3,
+    #     device="cpu",
     # )
 
-    dataset = PokecZ(
-        "./dataset/pokec/region_job.csv",
-        "./dataset/pokec/region_job_relationship.txt",
-        "./src/pokec_z_embedding10.npy",
-        feat_drop_rate=0.3,
-    )
+    # dataset = PokecN(
+    #     "./dataset/pokec/region_job_2.csv",
+    #     "./dataset/pokec/region_job_2_relationship.txt",
+    #     "./src/pokec_n_embedding10.npy",
+    #     feat_drop_rate=0.3,
+    #     device="cpu",
+    # )
 
-    loader = DataLoader(dataset)
+    # dataset = PokecZ(
+    #     "./dataset/pokec/region_job.csv",
+    #     "./dataset/pokec/region_job_relationship.txt",
+    #     "./src/pokec_z_embedding10.npy",
+    #     feat_drop_rate=0.3,
+    #     device="cpu",
+    # )
 
-    for i, (sub_node, embeddings, features, keep_indices, drop_indices) in enumerate(
-        loader
-    ):
-        print(sub_node)
+    # dataset = Recidivism(
+    #     feat_drop_rate=0.3,
+    #     embedding_path="./dataset/bail/deepwalk_emb-20240115-155136-wl=100-dim=64-ep=10.npy",
+    #     device="cpu",
+    # )
 
-    print(dataset.sample_ac())
-    print(dataset.inside_labels())
+    # dataset = Credit(
+    #     feat_drop_rate=0.3,
+    #     embedding_path="./dataset/credit/deepwalk_emb-20240125-114643-wl=100-dim=64-ep=10.npy",
+    #     device="cpu",
+    # )
+
+    # loader = DataLoader(dataset)
+
+    # for i, sub_node in enumerate(loader):
+    #     print(i, sub_node)
+
+    # print(dataset.sample_ac())
+    # print(dataset.inside_labels())
