@@ -4,6 +4,6 @@
 # from .FairGNN import *
 # from .SAGE import *
 
-# from .gnn import *
+# from .gcn import *
 # from .fair import *
 # from .ac im
