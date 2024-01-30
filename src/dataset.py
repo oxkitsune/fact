@@ -118,7 +118,7 @@ class FairACDataset(Dataset):
         self.embeddings = torch.tensor(np.load(embedding_path), device=device)
         self.device = device
 
-        adj, features, labels, sens, train_idx, test_idx, idx_sens_train = load(
+        adj, features, labels, sens, train_idx, test_idx, idx_sens_train, val_idx = load(
             nodes_path,
             edges_path,
             sens_attr,
@@ -172,6 +172,7 @@ class FairACDataset(Dataset):
 
         self.y_idx = indices[train_idx]
         self.train_idx = train_idx
+        self.val_idx = val_idx
         self.test_idx = test_idx
         self.sens_train_idx = idx_sens_train
         self.labels = labels
@@ -555,7 +556,7 @@ def load(
     idx_val = torch.tensor(idx_val, device=device)
     idx_test = torch.tensor(idx_test, device=device)
 
-    return adj, features, labels, sens, idx_train, idx_test, idx_sens_train
+    return adj, features, labels, sens, idx_train, idx_test, idx_sens_train, idx_val
 
 
 if __name__ == "__main__":

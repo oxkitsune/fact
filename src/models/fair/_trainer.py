@@ -8,8 +8,10 @@ import torch
 import torch.nn.functional as F
 from tqdm import trange
 
-from models.gnn import GNNKind, FairGNN
+from models.gnn import GNNKind
+from models.fair import FairGNN
 from metrics import Metrics, accuracy, BestMetrics, fair_metric
+import dgl
 
 
 class FairGNNTrainer:
@@ -60,7 +62,7 @@ class FairGNNTrainer:
             keep_indices,
             drop_indices,
         ) = self.dataset.sample_full()
-
+        adj = self.dataset.graph
         # average mean features for dropped nodes
         kept = features[keep_indices].mean(dim=0)
         mean = kept.mean(dim=0)

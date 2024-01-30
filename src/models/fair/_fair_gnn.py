@@ -24,8 +24,8 @@ class FairGNN(nn.Module):
         self.estimator = GCN(num_features, num_hidden, dropout, 1)
         self.gnn = WrappedGNN(
             input_dim=num_features,
-            num_hidden=gnn_hidden_dim,
-            ggn_type=gnn_kind,
+            hidden_dim=gnn_hidden_dim,
+            gnn_type=gnn_kind,
             lr=lr,
             weight_decay=weight_decay,
             **gnn_args,
@@ -35,8 +35,6 @@ class FairGNN(nn.Module):
         self.gnn_args = gnn_args
 
         self.criterion = nn.BCEWithLogitsLoss()
-        self.gnn_loss = 0
-        self.adv_loss = 0
 
     def forward(self, adj, x):
         s = self.estimator(adj, x)
