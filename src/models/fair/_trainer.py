@@ -125,9 +125,9 @@ class FairGNNTrainer:
 
         s_g = self.fair_gnn.adv(h)
 
-        s_score = F.sigmoid(s.detach())
+        s_score = torch.sigmoid(s.detach())
         s_score[sens_train_idx] = sens[sens_train_idx].unsqueeze(1).float()
-        y_score = F.sigmoid(y)
+        y_score = torch.sigmoid(y)
 
         gnn_loss = self.fair_gnn.gnn_loss(
             y_score, y[train_idx], labels[train_idx].unsqueeze(1).float(), s_g, s_score
@@ -160,13 +160,13 @@ class FairGNNTrainer:
 
         # acc_sens = accuracy(s[test_idx], sens[test_idx])
 
-        parity_val, equality_val = fair_metric(output, val_idx)
+        parity_val, equality_val = fair_metric(output, val_idx, labels=labels, sens=sens)
 
         acc_test = accuracy(output[test_idx], labels[test_idx])
         roc_test = roc_auc_score(
             labels[test_idx].cpu().numpy(), output[test_idx].detach().cpu().numpy()
         )
-        parity, equality = fair_metric(output, test_idx)
+        parity, equality = fair_metric(output, test_idx, labels=labels, sens=sens)
 
         result = Metrics(acc_test.item(), roc_test, parity, equality)
 
