@@ -3,6 +3,7 @@ from ._gcn import GCNBody, GCN
 from ._sage import SAGEBody
 
 from ._fair_gnn import FairGNN
+from ._trainer import FairGNNTrainer
 
 from itertools import chain
 

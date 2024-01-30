@@ -1,7 +1,5 @@
-from itertools import chain
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from models.gnn import WrappedGNN, GNNKind, GCN
 
@@ -10,16 +8,15 @@ class FairGNN(nn.Module):
     def __init__(
         self,
         num_features: int,
-        num_hidden: int,
-        dropout: float,
-        device: torch.device,
-        alpha: float,
-        beta: float,
-        lr: float,
-        weight_decay: float,
-        gnn_kind: GNNKind,
-        gnn_hidden_dim: int,
-        gnn_args: dict,
+        num_hidden: int = 128,
+        dropout: float = 0.5,
+        alpha: float = 10,
+        beta: float = 1,
+        lr: float = 1e-3,
+        weight_decay: float = 1e-5,
+        gnn_kind: GNNKind = "GCN",
+        gnn_hidden_dim: int = 64,
+        gnn_args: dict = {"dropout": 0.5},
     ):
         super(FairGNN, self).__init__()
         self.alpha = alpha
