@@ -1,4 +1,7 @@
 import numpy as np
+from dataclasses import dataclass
+
+from typing import Optional
 
 
 def fair_metric(output, idx, labels, sens):
@@ -25,3 +28,40 @@ def accuracy(output, labels):
     correct = preds.eq(labels).double()
     correct = correct.sum()
     return correct / len(labels)
+
+
+@dataclass
+class Metrics:
+    acc: float
+    roc: float
+    parity: float
+    equality: float
+
+
+@dataclass
+class BestMetrics:
+    best_fair: Optional[Metrics]
+    acc: Optional[Metrics]
+    auc: Optional[Metrics]
+    ar: Optional[Metrics]
+
+    def update_metrics(self, metrics: Metrics, min_acc: float, min_roc: float):
+        if self.acc is None or metrics.acc > self.acc.acc:
+            self.acc = metrics
+
+        if self.auc is None or metrics.roc > self.auc.roc:
+            self.auc = metrics
+
+        if self.ar is None or metrics.acc + metrics.roc > self.ar.acc + self.ar.roc:
+            self.ar = metrics
+
+        if (
+            (
+                self.best_fair is None
+                or metrics.parity + metrics.equality
+                < self.best_fair.parity + self.best_fair.equality
+            )
+            and metrics.acc >= min_acc
+            and metrics.roc >= min_roc
+        ):
+            self.best_fair = metrics

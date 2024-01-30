@@ -1,6 +1,8 @@
 from ._gat import GATBody
-from ._gcn import GCNBody
+from ._gcn import GCNBody, GCN
 from ._sage import SAGEBody
+
+from ._fair_gnn import FairGNN
 
 from itertools import chain
 

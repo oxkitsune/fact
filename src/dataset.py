@@ -118,7 +118,7 @@ class FairACDataset(Dataset):
         self.embeddings = torch.tensor(np.load(embedding_path), device=device)
         self.device = device
 
-        adj, features, labels, sens, train_idx, test_idx = load(
+        adj, features, labels, sens, train_idx, test_idx, idx_sens_train = load(
             nodes_path,
             edges_path,
             sens_attr,
@@ -173,6 +173,7 @@ class FairACDataset(Dataset):
         self.y_idx = indices[train_idx]
         self.train_idx = train_idx
         self.test_idx = test_idx
+        self.sens_train_idx = idx_sens_train
         self.labels = labels
 
         self.graph = dgl.from_scipy(adj, device=device)
@@ -197,7 +198,7 @@ class FairACDataset(Dataset):
 
         return sub_adj, sub_node, embeddings, features, keep_indices, drop_indices
 
-    def sample_ac(self):
+    def sample_fairac(self):
         # sub_nodes[0][keep] is fully labeled
         ac_train_indices = self.sub_nodes[0][self.sub_keep_indices[0]][
             : self.sample_number
@@ -216,6 +217,19 @@ class FairACDataset(Dataset):
         sens = self.sens[ac_train_indices]
 
         return train_adj, embeddings, features, sens, keep_indices, drop_indices
+
+    def sample_full(self):
+        keep_indices = torch.cat(self.sub_keep_indices)
+        drop_indices = torch.cat(self.sub_drop_indices)
+
+        return (
+            self.adj,
+            self.embeddings,
+            self.features,
+            self.sens,
+            keep_indices,
+            drop_indices,
+        )
 
     def inside_labels(self):
         return (
@@ -541,7 +555,7 @@ def load(
     idx_val = torch.tensor(idx_val, device=device)
     idx_test = torch.tensor(idx_test, device=device)
 
-    return adj, features, labels, sens, idx_train, idx_test
+    return adj, features, labels, sens, idx_train, idx_test, idx_sens_train
 
 
 if __name__ == "__main__":

@@ -9,40 +9,11 @@ from tqdm.auto import trange
 from models.gnn import GNNKind, WrappedGNN
 
 from sklearn.metrics import roc_auc_score
-from ._metric import fair_metric, accuracy, Metrics
+from ._metric import fair_metric, accuracy, Metrics, BestMetrics
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
-
-
-@dataclass
-class BestMetrics:
-    best_fair: Optional[Metrics]
-    acc: Optional[Metrics]
-    auc: Optional[Metrics]
-    ar: Optional[Metrics]
-
-    def update_metrics(self, metrics: Metrics, min_acc: float, min_roc: float):
-        if self.acc is None or metrics.acc > self.acc.acc:
-            self.acc = metrics
-
-        if self.auc is None or metrics.roc > self.auc.roc:
-            self.auc = metrics
-
-        if self.ar is None or metrics.acc + metrics.roc > self.ar.acc + self.ar.roc:
-            self.ar = metrics
-
-        if (
-            (
-                self.best_fair is None
-                or metrics.parity + metrics.equality
-                < self.best_fair.parity + self.best_fair.equality
-            )
-            and metrics.acc >= min_acc
-            and metrics.roc >= min_roc
-        ):
-            self.best_fair = metrics
 
 
 class Trainer:
@@ -162,7 +133,7 @@ class Trainer:
                 keep_indices,
                 drop_indices,
             ) = self.dataset.sample_ac()
-            
+
             kept_embeddings = embeddings[keep_indices]
             kept_features = features[keep_indices]
             dropped_features = features[drop_indices]
@@ -189,7 +160,8 @@ class Trainer:
             criterion = torch.nn.BCEWithLogitsLoss()
             # only update sensitive classifier
             Csen_loss = criterion(
-                sens_prediction_detach, train_sens[keep_indices].unsqueeze(1).to(dtype=torch.float32)
+                sens_prediction_detach,
+                train_sens[keep_indices].unsqueeze(1).to(dtype=torch.float32),
             )
 
             # sensitive optimizer.step
@@ -212,7 +184,8 @@ class Trainer:
 
             sens_prediction_keep = self.ac_model.sensitive_pred(transformed_feature)
             Csen_loss = criterion(
-                sens_prediction_keep, train_sens[keep_indices].unsqueeze(1).to(dtype=torch.float32)
+                sens_prediction_keep,
+                train_sens[keep_indices].unsqueeze(1).to(dtype=torch.float32),
             )
 
             total_loss = (
@@ -277,7 +250,6 @@ class Trainer:
             weight_decay=self.gnn_weight_decay,
             **self.gnn_args,
         ).to(self.device)
-
 
         pbar = trange(epochs, leave=False, disable=not progress_bar)
         for epoch in pbar:
@@ -366,5 +338,5 @@ class Trainer:
                     drop_indices
                 ]
                 features_embedding[sub_node[keep_indices]] = transformed_feature
-    
+
         return features_embedding
