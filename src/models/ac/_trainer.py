@@ -81,11 +81,7 @@ class Trainer:
                 _sens,
                 keep_indices,
                 drop_indices,
-<<<<<<< Updated upstream
             ) = self.dataset.sample_fairac()
-=======
-            ) = self.dataset.sample_fair()
->>>>>>> Stashed changes
 
             kept_embeddings = embeddings[keep_indices]
             kept_features = features[keep_indices]
