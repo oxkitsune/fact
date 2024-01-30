@@ -118,7 +118,16 @@ class FairACDataset(Dataset):
         self.embeddings = torch.tensor(np.load(embedding_path), device=device)
         self.device = device
 
-        adj, features, labels, sens, train_idx, test_idx, idx_sens_train, val_idx = load(
+        (
+            adj,
+            features,
+            labels,
+            sens,
+            train_idx,
+            test_idx,
+            idx_sens_train,
+            val_idx,
+        ) = load(
             nodes_path,
             edges_path,
             sens_attr,
@@ -601,6 +610,6 @@ if __name__ == "__main__":
     # for i, sub_node in enumerate(loader):
     #     print(i, sub_node)
 
-    # print(dataset.sample_ac())
+    # print(dataset.sample_fairac())
     # print(dataset.inside_labels())
     pass

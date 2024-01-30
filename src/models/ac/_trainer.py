@@ -81,7 +81,7 @@ class Trainer:
                 _sens,
                 keep_indices,
                 drop_indices,
-            ) = self.dataset.sample_ac()
+            ) = self.dataset.sample_fairac()
 
             kept_embeddings = embeddings[keep_indices]
             kept_features = features[keep_indices]
@@ -132,7 +132,7 @@ class Trainer:
                 train_sens,
                 keep_indices,
                 drop_indices,
-            ) = self.dataset.sample_ac()
+            ) = self.dataset.sample_fairac()
 
             kept_embeddings = embeddings[keep_indices]
             kept_features = features[keep_indices]
