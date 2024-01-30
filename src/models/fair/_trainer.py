@@ -23,7 +23,7 @@ class FairGNNTrainer:
         log_dir: Path,
         min_acc: float,
         min_roc: float,
-        alpha=1,
+        alpha=100,
         beta=1,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
@@ -33,6 +33,7 @@ class FairGNNTrainer:
         self.fair_gnn = fair_gnn
         self.log_dir = log_dir
         self.best_metrics = BestMetrics(None, None, None, None)
+        self.best_val_metrics = BestMetrics(None, None, None, None)
         self.min_acc = min_acc
         self.min_roc = min_roc
 
@@ -144,21 +145,24 @@ class FairGNNTrainer:
         self.adv_optimizer.step()
 
     def eval(self, pbar, curr_epoch, adj, features, sens):
+        self.fair_gnn.eval()
         val_idx = self.dataset.val_idx
         test_idx = self.dataset.test_idx
         y_idx, train_idx, labels = self.dataset.inside_labels()
 
         output, s = self.fair_gnn(adj, features)
-        # acc_val = accuracy(output[val_idx], labels[val_idx])
-        # roc_val = roc_auc_score(
-        #     labels[val_idx].cpu().numpy(), output[val_idx].detach().cpu().numpy()
-        # )
+        acc_val = accuracy(output[val_idx], labels[val_idx])
+        roc_val = roc_auc_score(
+            labels[val_idx].cpu().numpy(), output[val_idx].detach().cpu().numpy()
+        )
 
         # acc_sens = accuracy(s[test_idx], sens[test_idx])
 
         parity_val, equality_val = fair_metric(
             output, val_idx, labels=labels, sens=sens
         )
+
+        val_result = Metrics(acc_val.item(), roc_val, parity_val, equality_val)
 
         acc_test = accuracy(output[test_idx], labels[test_idx])
         roc_test = roc_auc_score(
@@ -174,17 +178,19 @@ class FairGNNTrainer:
 
         if (
             (
-                self.best_metrics.best_fair is None
-                or result.parity + result.equality
-                < self.best_metrics.best_fair.parity
-                + self.best_metrics.best_fair.equality
+                self.best_val_metrics.best_fair is None
+                or val_result.parity + val_result.equality
+                < self.best_val_metrics.best_fair.parity
+                + self.best_val_metrics.best_fair.equality
             )
-            and result.acc >= self.min_acc
-            and result.roc >= self.min_roc
+            and val_result.acc >= self.min_acc
+            and val_result.roc >= self.min_roc
         ):
             torch.save(self.fair_gnn, self.log_dir / f"gnn_epoch{curr_epoch:04d}.pt")
 
-        self.best_metrics.update_metrics(result, self.min_acc, self.min_roc)
+        if self.best_val_metrics.update_metrics(val_result, self.min_acc, self.min_roc):
+            self.best_metrics.update_metrics(result, self.min_acc, self.min_roc)
+            self.best_metrics.best_fair = result
 
 
 # # Model and optimizer

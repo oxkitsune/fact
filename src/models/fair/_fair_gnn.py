@@ -10,12 +10,12 @@ class FairGNN(nn.Module):
         num_features: int,
         num_hidden: int = 128,
         dropout: float = 0.5,
-        alpha: float = 10,
+        alpha: float = 100,
         beta: float = 1,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
         gnn_kind: GNNKind = "GCN",
-        gnn_hidden_dim: int = 64,
+        gnn_hidden_dim: int = 128,
         gnn_args: dict = {"dropout": 0.5},
     ):
         super(FairGNN, self).__init__()
@@ -44,7 +44,7 @@ class FairGNN(nn.Module):
 
     def gnn_loss(self, y_score, y_pred, y_labels, s_g, s_score):
         cls_loss = self.criterion(y_pred, y_labels)
-        adv_loss = self.criterion(s_score, s_g)
+        adv_loss = self.criterion(s_g, s_score)
         cov = torch.abs(
             torch.mean(s_score - torch.mean(s_score))
             * torch.mean(y_score - torch.mean(y_score))
@@ -54,4 +54,4 @@ class FairGNN(nn.Module):
 
     def adv_loss(self, h, s_score):
         s_g = self.adv(h)
-        return self.criterion(s_score, s_g)
+        return self.criterion(s_g, s_score)

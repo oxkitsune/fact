@@ -46,6 +46,7 @@ class BestMetrics:
     ar: Optional[Metrics]
 
     def update_metrics(self, metrics: Metrics, min_acc: float, min_roc: float):
+        best_fair_has_changed = False
         if self.acc is None or metrics.acc > self.acc.acc:
             self.acc = metrics
 
@@ -65,3 +66,5 @@ class BestMetrics:
             and metrics.roc >= min_roc
         ):
             self.best_fair = metrics
+            best_fair_has_changed = True
+        return best_fair_has_changed
