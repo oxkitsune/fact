@@ -1,4 +1,4 @@
-from models.gnn import FairGNN, FairGNNTrainer
+from models.fair import FairGNN, FairGNNTrainer
 from dataset import NBA
 
 from pathlib import Path
