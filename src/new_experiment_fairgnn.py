@@ -16,7 +16,7 @@ log_dir = Path("./logs/test_run")
 
 
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print("using device:", device)
 
 # dataset = NBA(
@@ -39,7 +39,7 @@ dataset = PokecZ(
 fair_gnn = FairGNN(
     num_features=dataset.features.shape[1],
 ).to(device)
-fair_gnn.estimator.load_state_dict(torch.load("./src/checkpoint/GCN_sens_region_job__ns_200"))
+fair_gnn.estimator.load_state_dict(torch.load("./src/checkpoint/GCN_sens_region_job_ns_200"))
 
 trainer = FairGNNTrainer(
     dataset=dataset,
