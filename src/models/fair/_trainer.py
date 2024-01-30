@@ -72,15 +72,15 @@ class FairGNNTrainer:
         for epoch in pbar:
             pbar.set_description(f"Epoch {epoch}")
             self.optimize(
-                pbar,
                 adj,
                 features,
                 sens,
             )
-            self.eval(epoch, adj, features, sens)
+            self.eval(pbar, epoch, adj, features, sens)
 
         if (
-            self.best_metrics.best_fair.acc < self.min_acc
+            self.best_metrics.best_fair is None
+            or self.best_metrics.best_fair.acc < self.min_acc
             or self.best_metrics.best_fair.roc < self.min_roc
         ):
             print("Please set smaller acc/roc thresholds!")
@@ -111,7 +111,7 @@ class FairGNNTrainer:
         with open(self.log_dir / "best_metrics.json", "a") as f:
             json.dump(asdict(self.best_metrics), f, indent=4)
 
-    def optimize(self, pbar, adj, features, sens):
+    def optimize(self, adj, features, sens):
         self.fair_gnn.train()
 
         sens_train_idx = self.dataset.sens_train_idx
@@ -143,11 +143,7 @@ class FairGNNTrainer:
         adv_loss.backward()
         self.adv_optimizer.step()
 
-        pbar.set_postfix_str(
-            f"Loss GNN: {gnn_loss.item():.4f}, Loss Adverserial: {adv_loss.item():.4f}",
-        )
-
-    def eval(self, curr_epoch, adj, features, sens):
+    def eval(self, pbar, curr_epoch, adj, features, sens):
         val_idx = self.dataset.val_idx
         test_idx = self.dataset.test_idx
         y_idx, train_idx, labels = self.dataset.inside_labels()
@@ -160,13 +156,19 @@ class FairGNNTrainer:
 
         # acc_sens = accuracy(s[test_idx], sens[test_idx])
 
-        parity_val, equality_val = fair_metric(output, val_idx, labels=labels, sens=sens)
+        parity_val, equality_val = fair_metric(
+            output, val_idx, labels=labels, sens=sens
+        )
 
         acc_test = accuracy(output[test_idx], labels[test_idx])
         roc_test = roc_auc_score(
             labels[test_idx].cpu().numpy(), output[test_idx].detach().cpu().numpy()
         )
         parity, equality = fair_metric(output, test_idx, labels=labels, sens=sens)
+
+        pbar.set_postfix_str(
+            f"Acc: {acc_test.item():.4f}, Roc: {roc_test:.4f}, Partity: {parity:.4f}, Equality: {equality:.4f}",
+        )
 
         result = Metrics(acc_test.item(), roc_test, parity, equality)
 
