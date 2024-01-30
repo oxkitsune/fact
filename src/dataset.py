@@ -152,10 +152,7 @@ class FairACDataset(Dataset):
             self.sub_keep_indices.append(torch.tensor(keep_indices, device=device))
             self.sub_drop_indices.append(torch.tensor(drop_indices, device=device))
             self.sub_adjs.append(
-                torch.tensor(
-                    self.adj[sub_node][:, sub_node][:, keep_indices],
-                    device="cpu",  # needs to be on cpu, due to memory limits
-                )
+                self.adj[sub_node][:, sub_node][:, keep_indices].clone().detach().cpu()
             )
 
         mask = torch.zeros(adj.shape[1]).to(device=device, dtype=torch.bool)
