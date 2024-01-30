@@ -9,40 +9,11 @@ from tqdm.auto import trange
 from models.gnn import GNNKind, WrappedGNN
 
 from sklearn.metrics import roc_auc_score
-from ._metric import fair_metric, accuracy, Metrics
+from metrics import fair_metric, accuracy, Metrics, BestMetrics
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
-
-
-@dataclass
-class BestMetrics:
-    best_fair: Optional[Metrics]
-    acc: Optional[Metrics]
-    auc: Optional[Metrics]
-    ar: Optional[Metrics]
-
-    def update_metrics(self, metrics: Metrics, min_acc: float, min_roc: float):
-        if self.acc is None or metrics.acc > self.acc.acc:
-            self.acc = metrics
-
-        if self.auc is None or metrics.roc > self.auc.roc:
-            self.auc = metrics
-
-        if self.ar is None or metrics.acc + metrics.roc > self.ar.acc + self.ar.roc:
-            self.ar = metrics
-
-        if (
-            (
-                self.best_fair is None
-                or metrics.parity + metrics.equality
-                < self.best_fair.parity + self.best_fair.equality
-            )
-            and metrics.acc >= min_acc
-            and metrics.roc >= min_roc
-        ):
-            self.best_fair = metrics
 
 
 class Trainer:
@@ -110,14 +81,8 @@ class Trainer:
                 _sens,
                 keep_indices,
                 drop_indices,
-            ) = self.dataset.sample_ac()
-            
-            train_adj = train_adj.to(self.device)
-            embeddings = embeddings.to(self.device)
-            features = features.to(self.device)
-            keep_indices = torch.tensor(keep_indices).to(self.device)
-            drop_indices = torch.tensor(drop_indices).to(self.device)
-            
+            ) = self.dataset.sample_fair()
+
             kept_embeddings = embeddings[keep_indices]
             kept_features = features[keep_indices]
             dropped_features = features[drop_indices]
@@ -167,14 +132,8 @@ class Trainer:
                 train_sens,
                 keep_indices,
                 drop_indices,
-            ) = self.dataset.sample_ac()
+            ) = self.dataset.sample_fairac()
 
-            train_adj = train_adj.to(self.device)
-            embeddings = embeddings.to(self.device)
-            features = features.to(self.device)
-            keep_indices = torch.tensor(keep_indices).to(self.device)
-            drop_indices = torch.tensor(drop_indices).to(self.device)
-            
             kept_embeddings = embeddings[keep_indices]
             kept_features = features[keep_indices]
             dropped_features = features[drop_indices]
@@ -197,11 +156,12 @@ class Trainer:
             # mitigate unfairness loss
             sens_prediction_detach = self.ac_model.sensitive_pred(
                 transformed_feature.detach()
-            ).to(self.device)
+            )
             criterion = torch.nn.BCEWithLogitsLoss()
             # only update sensitive classifier
             Csen_loss = criterion(
-                sens_prediction_detach, train_sens[keep_indices].unsqueeze(1).float()
+                sens_prediction_detach,
+                train_sens[keep_indices].unsqueeze(1).to(dtype=torch.float32),
             )
 
             # sensitive optimizer.step
@@ -215,16 +175,17 @@ class Trainer:
             sens_confusion = (
                 torch.ones(
                     sens_prediction.shape,
-                    device=sens_prediction.device,
+                    device=self.device,
                     dtype=torch.float32,
                 )
                 / 2
-            ).to(device)
+            )
             Csen_adv_loss = criterion(sens_prediction, sens_confusion)
 
             sens_prediction_keep = self.ac_model.sensitive_pred(transformed_feature)
             Csen_loss = criterion(
-                sens_prediction_keep, train_sens[keep_indices].unsqueeze(1).float()
+                sens_prediction_keep,
+                train_sens[keep_indices].unsqueeze(1).to(dtype=torch.float32),
             )
 
             total_loss = (
@@ -279,7 +240,6 @@ class Trainer:
     def _eval_with_gnn(self, curr_epoch, epochs=1000, progress_bar: bool = True):
         features_embedding = self._get_feature_embeddings()
         features_embedding_exclude_test = features_embedding[self.dataset.mask]
-
         y_idx, train_idx, labels = self.dataset.inside_labels()
 
         gnn_model = WrappedGNN(
@@ -302,7 +262,7 @@ class Trainer:
             )
 
             cy_loss = gnn_model.criterion(
-                y_hat[y_idx], labels[train_idx].unsqueeze(1).float()
+                y_hat[y_idx], labels[train_idx].unsqueeze(1).to(dtype=torch.float32)
             )
             cy_loss.backward()
 
@@ -362,14 +322,6 @@ class Trainer:
                 keep_indices,
                 drop_indices,
             ) in loader:
-                
-                sub_adj = sub_adj.to(self.device)
-                sub_node = sub_node.to(self.device)
-                embeddings = embeddings.to(self.device)
-                features = features.to(self.device)
-                keep_indices = torch.tensor(keep_indices).to(self.device)
-                drop_indices = torch.tensor(drop_indices).to(self.device)
-                
                 feature_src_ac, _features_hat, transformed_feature = self.ac_model(
                     sub_adj,
                     embeddings,
@@ -386,5 +338,5 @@ class Trainer:
                     drop_indices
                 ]
                 features_embedding[sub_node[keep_indices]] = transformed_feature
-    
+
         return features_embedding

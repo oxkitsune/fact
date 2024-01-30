@@ -9,7 +9,7 @@ from tqdm.auto import trange
 from models.gnn import GNNKind, WrappedGNN
 
 from sklearn.metrics import roc_auc_score
-from ._metric import fair_metric, accuracy, Metrics, BestMetrics
+from metrics import fair_metric, accuracy, Metrics, BestMetrics
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -81,7 +81,11 @@ class Trainer:
                 _sens,
                 keep_indices,
                 drop_indices,
+<<<<<<< Updated upstream
             ) = self.dataset.sample_fairac()
+=======
+            ) = self.dataset.sample_fair()
+>>>>>>> Stashed changes
 
             kept_embeddings = embeddings[keep_indices]
             kept_features = features[keep_indices]
