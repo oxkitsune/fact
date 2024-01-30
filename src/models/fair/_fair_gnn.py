@@ -1,3 +1,4 @@
+from pathlib import Path
 import torch
 import torch.nn as nn
 
@@ -35,6 +36,9 @@ class FairGNN(nn.Module):
         self.gnn_args = gnn_args
 
         self.criterion = nn.BCEWithLogitsLoss()
+
+    def load_estimator(self, path: Path):
+        self.estimator.load_state_dict(torch.load(path))
 
     def forward(self, adj, x):
         s = self.estimator(adj, x)

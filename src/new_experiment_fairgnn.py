@@ -15,7 +15,6 @@ data_path = Path("./dataset/pokec/")
 log_dir = Path("./logs/test_run")
 
 
-
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print("using device:", device)
 
@@ -33,13 +32,14 @@ dataset = PokecZ(
     embedding_path=data_path / "pokec_z_embedding10.npy",
     feat_drop_rate=0.3,
     device=device,
-    data_seed=20
+    data_seed=20,
 )
 
 fair_gnn = FairGNN(
     num_features=dataset.features.shape[1],
 ).to(device)
-fair_gnn.estimator.load_state_dict(torch.load("./src/checkpoint/GCN_sens_region_job_ns_200"))
+
+fair_gnn.load_estimator("./src/checkpoint/GCN_sens_region_job_ns_200")
 
 trainer = FairGNNTrainer(
     dataset=dataset,

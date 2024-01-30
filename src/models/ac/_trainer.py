@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from typing import Optional, Literal
 
-import tqdm
 from tqdm.auto import trange
 from models.gnn import GNNKind, WrappedGNN
 

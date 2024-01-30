@@ -6,7 +6,7 @@ from sklearn.metrics import roc_auc_score
 
 import torch
 import torch.nn.functional as F
-from tqdm import trange
+from tqdm.auto import trange
 
 from models.gnn import GNNKind
 from models.fair import FairGNN
@@ -32,7 +32,7 @@ class FairGNNTrainer:
         self.device = device
         self.fair_gnn = fair_gnn
         self.log_dir = log_dir
-        self.best_metrics = BestMetrics(None, None, None, None)
+        self.best_fair = None
         self.best_val_metrics = BestMetrics(None, None, None, None)
         self.min_acc = min_acc
         self.min_roc = min_roc
@@ -79,38 +79,20 @@ class FairGNNTrainer:
             )
             self.eval(pbar, epoch, adj, features, sens)
 
-        if (
-            self.best_metrics.best_fair is None
-            or self.best_metrics.best_fair.acc < self.min_acc
-            or self.best_metrics.best_fair.roc < self.min_roc
-        ):
+        if self.best_fair is None:
             print("Please set smaller acc/roc thresholds!")
         else:
             print("Finished training!")
 
-        print()
-        print("Best fair model:")
-        print(f"\tacc: {self.best_metrics.best_fair.acc:.04f}")
-        print(f"\troc: {self.best_metrics.best_fair.roc:.04f}")
-        print(f"\tparity: {self.best_metrics.best_fair.parity:.04f}")
-        print(f"\tequality: {self.best_metrics.best_fair.equality:.04f}")
+            print()
+            print("Best fair model:")
+            print(f"\tacc: {self.best_fair.acc:.04f}")
+            print(f"\troc: {self.best_fair.roc:.04f}")
+            print(f"\tparity: {self.best_fair.parity:.04f}")
+            print(f"\tequality: {self.best_fair.equality:.04f}")
 
-        print()
-        print("Best acc model:")
-        print(f"\tacc: {self.best_metrics.acc.acc:.04f}")
-        print(f"\troc: {self.best_metrics.acc.roc:.04f}")
-        print(f"\tparity: {self.best_metrics.acc.parity:.04f}")
-        print(f"\tequality: {self.best_metrics.acc.equality:.04f}")
-
-        print()
-        print("Best auc model:")
-        print(f"\tacc: {self.best_metrics.auc.acc:.04f}")
-        print(f"\troc: {self.best_metrics.auc.roc:.04f}")
-        print(f"\tparity: {self.best_metrics.auc.parity:.04f}")
-        print(f"\tequality: {self.best_metrics.auc.equality:.04f}")
-
-        with open(self.log_dir / "best_metrics.json", "a") as f:
-            json.dump(asdict(self.best_metrics), f, indent=4)
+            with open(self.log_dir / "best_metrics.json", "a") as f:
+                json.dump(asdict(self.best_fair), f, indent=4)
 
     def optimize(self, adj, features, sens):
         self.fair_gnn.train()
@@ -171,7 +153,7 @@ class FairGNNTrainer:
         parity, equality = fair_metric(output, test_idx, labels=labels, sens=sens)
 
         pbar.set_postfix_str(
-            f"Acc: {acc_test.item():.4f}, Roc: {roc_test:.4f}, Partity: {parity:.4f}, Equality: {equality:.4f}",
+            f"Acc: {acc_test.item():.4f}, Roc: {roc_test:.4f}, Parity: {parity:.4f}, Equality: {equality:.4f}",
         )
 
         result = Metrics(acc_test.item(), roc_test, parity, equality)
@@ -189,8 +171,7 @@ class FairGNNTrainer:
             torch.save(self.fair_gnn, self.log_dir / f"gnn_epoch{curr_epoch:04d}.pt")
 
         if self.best_val_metrics.update_metrics(val_result, self.min_acc, self.min_roc):
-            self.best_metrics.update_metrics(result, self.min_acc, self.min_roc)
-            self.best_metrics.best_fair = result
+            self.best_fair = result
 
 
 # # Model and optimizer
