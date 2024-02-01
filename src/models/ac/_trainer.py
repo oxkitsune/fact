@@ -8,7 +8,7 @@ from tqdm.auto import trange
 from models.gnn import GNNKind, WrappedGNN
 
 from sklearn.metrics import roc_auc_score
-from metrics import fair_metric, accuracy, Metrics, BestMetrics
+from metrics import fair_metric, accuracy, Metrics, BestMetrics, consistency_metric
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -218,6 +218,7 @@ class Trainer:
         print(f"\troc: {self.best_metrics.best_fair.roc:.04f}")
         print(f"\tparity: {self.best_metrics.best_fair.parity:.04f}")
         print(f"\tequality: {self.best_metrics.best_fair.equality:.04f}")
+        print(f"\tconsistency: {self.best_metrics.best_fair.consistency:.04f}")
 
         print()
         print("Best acc model:")
@@ -225,6 +226,7 @@ class Trainer:
         print(f"\troc: {self.best_metrics.acc.roc:.04f}")
         print(f"\tparity: {self.best_metrics.acc.parity:.04f}")
         print(f"\tequality: {self.best_metrics.acc.equality:.04f}")
+        print(f"\tconsistency: {self.best_metrics.acc.consistency:.04f}")
 
         print()
         print("Best auc model:")
@@ -232,6 +234,7 @@ class Trainer:
         print(f"\troc: {self.best_metrics.auc.roc:.04f}")
         print(f"\tparity: {self.best_metrics.auc.parity:.04f}")
         print(f"\tequality: {self.best_metrics.auc.equality:.04f}")
+        print(f"\tconsistency: {self.best_metrics.auc.consistency:.04f}")
 
         with open(self.log_dir / "best_metrics.json", "a") as f:
             json.dump(asdict(self.best_metrics), f, indent=4)
@@ -287,7 +290,13 @@ class Trainer:
                     output, test_idx, labels, self.dataset.sens
                 )
 
-                result = Metrics(acc_test.item(), roc_test, parity, equality)
+                consistency = consistency_metric(
+                    self.dataset.sparse_adj, test_idx, output
+                )
+
+                result = Metrics(
+                    curr_epoch, acc_test.item(), roc_test, parity, equality, consistency
+                )
 
                 if (
                     (
@@ -307,6 +316,7 @@ class Trainer:
                     )
 
                 self.best_metrics.update_metrics(result, self.min_acc, self.min_roc)
+        print(self.best_metrics)
 
     def _get_feature_embeddings(self):
         features_embedding = None

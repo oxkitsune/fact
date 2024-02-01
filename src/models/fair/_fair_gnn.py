@@ -9,9 +9,9 @@ class FairGNN(nn.Module):
     def __init__(
         self,
         num_features: int,
+        alpha: float,
         num_hidden: int = 128,
         dropout: float = 0.5,
-        alpha: float = 100,
         beta: float = 1,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,

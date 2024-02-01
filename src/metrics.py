@@ -2,6 +2,43 @@ import numpy as np
 from dataclasses import dataclass
 
 from typing import Optional
+from utils import calculate_similarity_matrix
+
+import torch
+
+
+# def consistency_metric(adj, test_idx: list, y_pred_test):
+#     test_idx = test_idx
+#     y_pred_test = y_pred_test
+#     x_similarity = calculate_similarity_matrix(adj, metric="cosine")
+#     x_similarity = x_similarity.toarray()
+
+#     numerator = 0
+#     denominator = 0
+#     for i in test_idx:
+#         for j in test_idx:
+#             denominator += x_similarity[i][j]
+#             indicator = 0 if y_pred_test[i] == y_pred_test[j] else 1
+#             numerator += indicator * x_similarity[i][j]
+#     consistency = 1 - numerator / denominator
+#     return consistency
+
+
+def consistency_metric(adj, test_idx, y_pred_test):
+    x_similarity = torch.tensor(
+        calculate_similarity_matrix(adj, metric="cosine").toarray()
+    ).to(test_idx.device)
+    sim_scores = x_similarity[:, test_idx][test_idx]
+    indicators = (
+        (y_pred_test[test_idx].unsqueeze(1).ne(y_pred_test[test_idx].unsqueeze(0)))
+        .float()
+        .squeeze(2)
+    )
+    numerator = (indicators * sim_scores).sum()
+    denominator = sim_scores.sum()
+
+    consistency = 1 - numerator / denominator
+    return consistency.item()
 
 
 def fair_metric(output, idx, labels, sens):
@@ -32,10 +69,12 @@ def accuracy(output, labels):
 
 @dataclass
 class Metrics:
+    epoch: int
     acc: float
     roc: float
     parity: float
     equality: float
+    consistency: float
 
 
 @dataclass

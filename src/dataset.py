@@ -147,6 +147,7 @@ class FairACDataset(Dataset):
         if sens_attr:
             sens[sens > 0] = 1
 
+        self.sparse_adj = adj
         self.adj = torch.tensor(adj.toarray(), dtype=torch.float).to(device)
         self.sub_nodes = list(torch.chunk(torch.arange(features.shape[0]), 4))
 
@@ -229,9 +230,12 @@ class FairACDataset(Dataset):
         return train_adj, embeddings, features, sens, keep_indices, drop_indices
 
     def sample_full(self):
-        keep_indices = torch.cat(self.sub_keep_indices)
-        drop_indices = torch.cat(self.sub_drop_indices)
-
+        keep_indices = torch.cat(
+            [node[keep] for node, keep in zip(self.sub_nodes, self.sub_keep_indices)]
+        )
+        drop_indices = torch.cat(
+            [node[drop] for node, drop in zip(self.sub_nodes, self.sub_drop_indices)]
+        )
         return (
             self.adj,
             self.embeddings,
@@ -507,11 +511,9 @@ def load(
         idx = np.array(idx_features_labels["user_id"], dtype=int)
         idx_map = {j: i for i, j in enumerate(idx)}
         edges_unordered = np.genfromtxt(os.path.join(edges_path), dtype=int)
-        edges = (
-            np.array(list(map(idx_map.get, edges_unordered.flatten())), dtype=int)
-            # .astype(int)
-            .reshape(edges_unordered.shape)
-        )
+        edges = np.array(
+            list(map(idx_map.get, edges_unordered.flatten())), dtype=int
+        ).reshape(edges_unordered.shape)
     else:
         idx = np.arange(features.shape[0])
         idx_map = {j: i for i, j in enumerate(idx)}

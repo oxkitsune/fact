@@ -10,7 +10,7 @@ from tqdm.auto import trange
 
 from models.gnn import GNNKind
 from models.fair import FairGNN
-from metrics import Metrics, accuracy, BestMetrics, fair_metric
+from metrics import Metrics, accuracy, BestMetrics, fair_metric, consistency_metric
 import dgl
 
 
@@ -23,22 +23,17 @@ class FairGNNTrainer:
         log_dir: Path,
         min_acc: float,
         min_roc: float,
-        alpha=100,
-        beta=1,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
     ):
         self.dataset = dataset
         self.device = device
-        self.fair_gnn = fair_gnn
+        self.fair_gnn = fair_gnn.to(device)
         self.log_dir = log_dir
         self.best_fair = None
         self.best_val_metrics = BestMetrics(None, None, None, None)
         self.min_acc = min_acc
         self.min_roc = min_roc
-
-        self.alpha = alpha
-        self.beta = beta
 
         gnn_params = chain(
             self.fair_gnn.gnn.parameters(), self.fair_gnn.estimator.parameters()
@@ -65,8 +60,9 @@ class FairGNNTrainer:
         ) = self.dataset.sample_full()
         adj = self.dataset.graph
         # average mean features for dropped nodes
-        kept = features[keep_indices].mean(dim=0)
+        kept = features[keep_indices]
         mean = kept.mean(dim=0)
+
         features[drop_indices] = mean
 
         pbar = trange(epochs, disable=not progress_bar)
@@ -99,6 +95,10 @@ class FairGNNTrainer:
 
         sens_train_idx = self.dataset.sens_train_idx
         y_idx, train_idx, labels = self.dataset.inside_labels()
+
+        sens = sens.float()
+
+        # print(adj, features, labels, train_idx, sens, sens_train_idx)
 
         self.fair_gnn.adv.requires_grad_(False)
         self.gnn_optimizer.zero_grad()
@@ -137,14 +137,20 @@ class FairGNNTrainer:
         roc_val = roc_auc_score(
             labels[val_idx].cpu().numpy(), output[val_idx].detach().cpu().numpy()
         )
-
-        # acc_sens = accuracy(s[test_idx], sens[test_idx])
-
         parity_val, equality_val = fair_metric(
             output, val_idx, labels=labels, sens=sens
         )
 
-        val_result = Metrics(acc_val.item(), roc_val, parity_val, equality_val)
+        consistency_val = consistency_metric(self.dataset.sparse_adj, val_idx, output)
+
+        val_result = Metrics(
+            curr_epoch,
+            acc_val.item(),
+            roc_val,
+            parity_val,
+            equality_val,
+            consistency_val,
+        )
 
         acc_test = accuracy(output[test_idx], labels[test_idx])
         roc_test = roc_auc_score(
@@ -156,7 +162,11 @@ class FairGNNTrainer:
             f"Acc: {acc_test.item():.4f}, Roc: {roc_test:.4f}, Parity: {parity:.4f}, Equality: {equality:.4f}",
         )
 
-        result = Metrics(acc_test.item(), roc_test, parity, equality)
+        consistency = consistency_metric(self.dataset.sparse_adj, test_idx, output)
+
+        result = Metrics(
+            curr_epoch, acc_test.item(), roc_test, parity, equality, consistency
+        )
 
         if (
             (
@@ -172,6 +182,7 @@ class FairGNNTrainer:
 
         if self.best_val_metrics.update_metrics(val_result, self.min_acc, self.min_roc):
             self.best_fair = result
+            pbar.write(f"[{curr_epoch}] updated to: {self.best_fair}")
 
 
 # # Model and optimizer
