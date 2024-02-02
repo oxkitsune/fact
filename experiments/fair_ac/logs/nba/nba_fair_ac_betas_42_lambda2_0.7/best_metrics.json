@@ -1,0 +1,37 @@
+{
+    "fair": {
+        "epoch": 1000,
+        "acc": 0.6962025316455696,
+        "roc": 0.8068035943517331,
+        "parity": 0.005952380952380931,
+        "equality": 0.005555555555555536,
+        "consistency": 0.07039931728334614
+    },
+    "acc": {
+        "epoch": 1600,
+        "acc": 0.7974683544303798,
+        "roc": 0.8267008985879333,
+        "parity": 0.07043650793650791,
+        "equality": 0.022222222222222254,
+        "consistency": null
+    },
+    "auc": {
+        "epoch": 1800,
+        "acc": 0.4810126582278481,
+        "roc": 0.8857509627727856,
+        "parity": 0.0,
+        "equality": 0.0,
+        "consistency": null
+    },
+    "ar": {
+        "epoch": 1800,
+        "acc": 0.7848101265822784,
+        "roc": 0.862002567394095,
+        "parity": 0.06944444444444442,
+        "equality": 0.12222222222222223,
+        "consistency": null
+    },
+    "best_epoch": 1000,
+    "best_gnn_model": "gnn_epoch1000.pt",
+    "best_ac_model": "ac_epoch1000.pt"
+}

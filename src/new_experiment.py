@@ -1,4 +1,5 @@
-from models.ac import FairAC, Trainer
+from models.fair.ac import FairAC, Trainer
+from models.gnn import WrappedGNNConfig
 from dataset import NBA
 
 from pathlib import Path
@@ -43,18 +44,21 @@ import numpy as np
 # equality = 0.0024
 
 
-SEED = 20
+SEED = 42
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+
 data_path = Path("./dataset/NBA/")
-log_dir = Path("./logs/test_run")
+log_dir = Path("./logs/test_run_sanity")
 
 dataset = NBA(
     nodes_path=data_path / "nba.csv",
     edges_path=data_path / "nba_relationship.txt",
     embedding_path=data_path / "nba_embedding10.npy",
     feat_drop_rate=0.3,
+    device=device,
 )
 
 fair_ac = FairAC(
@@ -67,16 +71,23 @@ fair_ac = FairAC(
     num_sensitive_classes=1,
 )
 
+fair_ac = fair_ac.to(device)
+
+gnn_config = WrappedGNNConfig(
+    kind="GCN",
+    hidden_dim=128,
+    lr=1e-3,
+    weight_decay=1e-5,
+    kwargs={"dropout": 0.5},
+)
+
 trainer = Trainer(
+    device=device,
     ac_model=fair_ac,
+    gnn_config=gnn_config,
     lambda1=1.0,
     lambda2=1.0,
     dataset=dataset,
-    gnn_kind="GCN",
-    gnn_hidden_dim=128,
-    gnn_lr=1e-3,
-    gnn_weight_decay=1e-5,
-    gnn_args={"dropout": 0.5},
     log_dir=log_dir,
     min_acc=0.65,
     min_roc=0.69,

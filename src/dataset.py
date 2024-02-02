@@ -135,6 +135,7 @@ class FairACDataset(Dataset):
             device,
             label_number,
             sens_number,
+            test_idx,
             # shuffle=False,
             data_seed=data_seed,
             remove_user_id=remove_user_id,
@@ -165,8 +166,8 @@ class FairACDataset(Dataset):
                 self.adj[sub_node][:, sub_node][:, keep_indices].clone().detach().cpu()
             )
 
-        mask = torch.zeros(adj.shape[1]).to(device=device, dtype=torch.bool)
-        mask[train_idx] = True
+        mask = torch.ones(adj.shape[1]).to(device=device, dtype=torch.bool)
+        mask[test_idx] = False
 
         # mask for removing test values
         self.mask = mask

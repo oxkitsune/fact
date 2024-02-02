@@ -3,6 +3,7 @@ from ._gcn import GCNBody, GCN
 from ._sage import SAGEBody
 
 from itertools import chain
+from dataclasses import dataclass
 
 import torch
 from torch import nn
@@ -25,6 +26,20 @@ def _create_gnn(gnn_type: GNNKind, **kwargs):
         raise ValueError(f"Unknown GNN type: {gnn_type}")
 
 
+@dataclass
+class WrappedGNNConfig:
+    """
+    Configuration for wrapped GNN models.
+    """
+
+    hidden_dim: int
+    kind: GNNKind
+    lr: float
+    weight_decay: float
+    # additional kwargs for the GNN model
+    kwargs: dict
+
+
 # taken from `FairAC.py`
 class WrappedGNN(nn.Module):
     """
@@ -38,29 +53,27 @@ class WrappedGNN(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dim: int,
-        gnn_type: GNNKind,
-        lr: float,
-        weight_decay: float,
-        **kwargs,
+        config: WrappedGNNConfig,
     ):
         """A wrapper class for GNN models.
 
         Args:
-            input_dim (int): The dimensionality of the input features
-            hidden_dim (int): The dimensionality of the hidden layers
-            gnn_type (GNNKind): The type of GNN to use
-            lr (float): The learning rate
-            weight_decay (float): The weight decay
+            input_dim (int): Input dimension of the GNN.
+            config (WrappedGNNConfig): Configuration for the GNN model.
         """
         super(WrappedGNN, self).__init__()
         self.gnn = _create_gnn(
-            gnn_type, input_dim=input_dim, hidden_dim=hidden_dim, **kwargs
+            config.kind,
+            input_dim=input_dim,
+            hidden_dim=config.hidden_dim,
+            **config.kwargs,
         )
-        self.classifier = nn.Linear(hidden_dim, 1)
+        self.classifier = nn.Linear(config.hidden_dim, 1)
 
         gnn_params = chain(self.gnn.parameters(), self.classifier.parameters())
-        self.optimizer = torch.optim.Adam(gnn_params, lr=lr, weight_decay=weight_decay)
+        self.optimizer = torch.optim.Adam(
+            gnn_params, lr=config.lr, weight_decay=config.weight_decay
+        )
         self.criterion = nn.BCEWithLogitsLoss()
 
     def forward(self, g, x):

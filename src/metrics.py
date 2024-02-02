@@ -7,35 +7,35 @@ from utils import calculate_similarity_matrix
 import torch
 
 
-# def consistency_metric(adj, test_idx: list, y_pred_test):
-#     test_idx = test_idx
-#     y_pred_test = y_pred_test
-#     x_similarity = calculate_similarity_matrix(adj, metric="cosine")
-#     x_similarity = x_similarity.toarray()
+def consistency_metric_og(adj, test_idx: list, y_pred_test):
+    test_idx = test_idx
+    y_pred_test = y_pred_test
+    x_similarity = calculate_similarity_matrix(adj, metric="cosine")
+    x_similarity = x_similarity.toarray()
 
-#     numerator = 0
-#     denominator = 0
-#     for i in test_idx:
-#         for j in test_idx:
-#             denominator += x_similarity[i][j]
-#             indicator = 0 if y_pred_test[i] == y_pred_test[j] else 1
-#             numerator += indicator * x_similarity[i][j]
-#     consistency = 1 - numerator / denominator
-#     return consistency
+    numerator = 0
+    denominator = 0
+    for i in test_idx:
+        for j in test_idx:
+            denominator += x_similarity[i][j]
+            indicator = 0 if y_pred_test[i] == y_pred_test[j] else 1
+            numerator += indicator * x_similarity[i][j]
+    consistency = 1 - numerator / denominator
+    return consistency
 
 
 def consistency_metric(adj, test_idx, y_pred_test):
     x_similarity = torch.tensor(
         calculate_similarity_matrix(adj, metric="cosine").toarray()
-    ).to(test_idx.device)
-    sim_scores = x_similarity[:, test_idx][test_idx]
+    ).cpu()
+    sim_scores = x_similarity[:, test_idx][test_idx].cpu()
     indicators = (
         (y_pred_test[test_idx].unsqueeze(1).ne(y_pred_test[test_idx].unsqueeze(0)))
         .float()
         .squeeze(2)
-    )
-    numerator = (indicators * sim_scores).sum()
-    denominator = sim_scores.sum()
+    ).cpu()
+    numerator = (indicators * sim_scores).sum().cpu()
+    denominator = sim_scores.sum().cpu()
 
     consistency = 1 - numerator / denominator
     return consistency.item()
@@ -74,12 +74,13 @@ class Metrics:
     roc: float
     parity: float
     equality: float
-    consistency: float
+    # since consistency is slow to calculate, we only do it on the best model
+    consistency: Optional[float]
 
 
 @dataclass
 class BestMetrics:
-    best_fair: Optional[Metrics]
+    fair: Optional[Metrics]
     acc: Optional[Metrics]
     auc: Optional[Metrics]
     ar: Optional[Metrics]
@@ -97,13 +98,13 @@ class BestMetrics:
 
         if (
             (
-                self.best_fair is None
+                self.fair is None
                 or metrics.parity + metrics.equality
-                < self.best_fair.parity + self.best_fair.equality
+                < self.fair.parity + self.fair.equality
             )
-            and metrics.acc >= min_acc
-            and metrics.roc >= min_roc
+            and metrics.acc > min_acc
+            and metrics.roc > min_roc
         ):
-            self.best_fair = metrics
+            self.fair = metrics
             best_fair_has_changed = True
         return best_fair_has_changed

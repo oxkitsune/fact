@@ -46,10 +46,10 @@ class ExperimentRunner:
         self.log_dir = self.root_dir / log_dir
 
     def _set_seed(self, seed: int):
+        print("SETTING SEED TO:", seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
 
     def runs(self):
         for seed in self.seeds:
@@ -80,11 +80,6 @@ def setup_experiment(seed: int, data_path: str, log_dir: str, device: int = 0):
 
     device = torch.device(f"cuda:{device}" if torch.cuda.is_available() else "cpu")
 
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
     print("Using directories:")
     print("root_dir:", root_dir)
     print("data_dir:", data_path)
@@ -112,7 +107,6 @@ def setup_evaluation(seed: int, data_path: str, model_dir: str, device: int = 0)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
     print("Using directories:")
     print("root_dir:", root_dir)

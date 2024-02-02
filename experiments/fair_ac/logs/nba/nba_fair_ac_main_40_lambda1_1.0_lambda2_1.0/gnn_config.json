@@ -1,0 +1,9 @@
+{
+    "hidden_dim": 128,
+    "kind": "GCN",
+    "lr": 0.001,
+    "weight_decay": 1e-05,
+    "kwargs": {
+        "dropout": 0.5
+    }
+}
