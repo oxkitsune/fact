@@ -30,6 +30,8 @@ class Trainer:
         self.fair_gnn = fair_gnn.to(device)
         self.log_dir = log_dir
         self.best_fair = None
+        self.best_output = None
+        self.best_epoch = None
         self.best_val_metrics = BestMetrics(None, None, None, None)
         self.min_acc = min_acc
         self.min_roc = min_roc
@@ -77,16 +79,16 @@ class Trainer:
         if self.best_fair is None:
             print("Please set smaller acc/roc thresholds!")
         else:
-            print("Finished training!")
+            consistency = consistency_metric(self.dataset.sparse_adj, self.dataset.test_idx, self.best_output)
+            self.best_fair.consistency = consistency
 
-            print()
-            print("Best fair model:")
-            print(f"\tacc: {self.best_fair.acc:.04f}")
-            print(f"\troc: {self.best_fair.roc:.04f}")
-            print(f"\tparity: {self.best_fair.parity:.04f}")
-            print(f"\tequality: {self.best_fair.equality:.04f}")
+            print("Finished training!")
+            Trainer._print_metric(self.best_fair, "fair")
 
             with open(self.log_dir / "best_metrics.json", "a") as f:
+                best_metrics = asdict(self.best_fair)
+                best_metrics["best_epoch"] = self.best_epoch
+                best_metrics["best_gnn_model"] = f"gnn_epoch{self.best_epoch}.pt"
                 json.dump(asdict(self.best_fair), f, indent=4)
 
     def optimize(self, adj, features, sens):
@@ -96,8 +98,6 @@ class Trainer:
         y_idx, train_idx, labels = self.dataset.inside_labels()
 
         sens = sens.float()
-
-        # print(adj, features, labels, train_idx, sens, sens_train_idx)
 
         self.fair_gnn.adv.requires_grad_(False)
         self.gnn_optimizer.zero_grad()
@@ -140,15 +140,13 @@ class Trainer:
             output, val_idx, labels=labels, sens=sens
         )
 
-        consistency_val = consistency_metric(self.dataset.sparse_adj, val_idx, output)
-
         val_result = Metrics(
             curr_epoch,
             acc_val.item(),
             roc_val,
             parity_val,
             equality_val,
-            consistency_val,
+            None,
         )
 
         acc_test = accuracy(output[test_idx], labels[test_idx])
@@ -161,10 +159,8 @@ class Trainer:
             f"Acc: {acc_test.item():.4f}, Roc: {roc_test:.4f}, Parity: {parity:.4f}, Equality: {equality:.4f}",
         )
 
-        consistency = consistency_metric(self.dataset.sparse_adj, test_idx, output)
-
         result = Metrics(
-            curr_epoch, acc_test.item(), roc_test, parity, equality, consistency
+            curr_epoch, acc_test.item(), roc_test, parity, equality, None
         )
 
         if (
@@ -177,8 +173,20 @@ class Trainer:
             and val_result.acc >= self.min_acc
             and val_result.roc >= self.min_roc
         ):
-            torch.save(self.fair_gnn, self.log_dir / f"gnn_epoch{curr_epoch:04d}.pt")
+            torch.save(self.fair_gnn, self.log_dir / f"gnn_epoch{curr_epoch}.pt")
 
         if self.best_val_metrics.update_metrics(val_result, self.min_acc, self.min_roc):
             self.best_fair = result
+            self.best_output = output
+            self.best_epoch = curr_epoch
             pbar.write(f"[{curr_epoch}] updated to: {self.best_fair}")
+
+    def _print_metric(metric, name):
+        print(f"Best {name} model:")
+        print(f"\tacc: {metric.acc:.04f}")
+        print(f"\troc: {metric.roc:.04f}")
+        print(f"\tparity: {metric.parity:.04f}")
+        print(f"\tequality: {metric.equality:.04f}")
+
+        if metric.consistency is not None:
+            print(f"\tconsistency: {metric.consistency:.04f}")
