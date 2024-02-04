@@ -2,7 +2,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from models.gnn import WrappedGNN, GNNKind, GCN
+from models.gnn import WrappedGNN, WrappedGNNConfig, GCN
 
 
 class FairGNN(nn.Module):
@@ -15,25 +15,22 @@ class FairGNN(nn.Module):
         beta: float = 1,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
-        gnn_kind: GNNKind = "GCN",
-        gnn_hidden_dim: int = 128,
-        gnn_args: dict = {"dropout": 0.5},
+        gnn_config: WrappedGNNConfig = WrappedGNNConfig(
+            kind="GCN",
+            hidden_dim=128,
+            lr=1e-3,
+            weight_decay=1e-5,
+            kwargs={"dropout": 0.5},
+        ),
     ):
         super(FairGNN, self).__init__()
         self.alpha = alpha
         self.beta = beta
         self.estimator = GCN(num_features, num_hidden, dropout, 1)
-        self.gnn = WrappedGNN(
-            input_dim=num_features,
-            hidden_dim=gnn_hidden_dim,
-            gnn_type=gnn_kind,
-            lr=lr,
-            weight_decay=weight_decay,
-            **gnn_args,
-        )
+        self.gnn = WrappedGNN(input_dim=num_features, config=gnn_config)
 
-        self.adv = nn.Linear(gnn_hidden_dim, 1)
-        self.gnn_args = gnn_args
+        self.adv = nn.Linear(gnn_config.hidden_dim, 1)
+        self.gnn_args = gnn_config.hidden_dim
 
         self.criterion = nn.BCEWithLogitsLoss()
 
