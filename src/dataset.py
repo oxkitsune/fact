@@ -13,81 +13,9 @@ from pathlib import Path
 
 import requests
 
-# if args.dataset != "nba":
-#     # if args.dataset == "pokec_z":
-#     #     dataset = "region_job"
-#     #     embedding = np.load(
-#     #         "pokec_z_embedding10.npy"
-#     #     )  # embedding is produced by Deep Walk
-#     #     embedding = torch.tensor(embedding)
-#     #     sens_attr = args.sens_attr_pokec
-#     # else:
-#     #     dataset = "region_job_2"
-#     #     embedding = np.load(
-#     #         "pokec_n_embedding10.npy"
-#     #     )  # embedding is produced by Deep Walk
-#     #     embedding = torch.tensor(embedding)
-#     #     sens_attr = args.sens_attr_pokec
-#     # predict_attr = "I_am_working_in_field"
-#     # label_number = args.label_number
-#     # sens_number = args.sens_number
-#     # seed = 20
-#     # path = "../dataset/pokec/"
-#     # test_idx = False
-# else:
-#     # dataset = "nba"
-#     sens_attr = args.sens_attr_nba
-#     predict_attr = "SALARY"
-#     label_number = 100
-#     sens_number = 50
-#     seed = 42
-#     path = "../dataset/NBA"
-#     test_idx = True
-#     embedding = np.load("nba_embedding10.npy")  # embedding is produced by Deep Walk
-#     embedding = torch.tensor(embedding)
-# print(dataset)
-
-# adj, features, labels, idx_train, _, idx_test, sens, _ = load_pokec(
-#     dataset,
-#     sens_attr,
-#     predict_attr,
-#     path=path,
-#     label_number=label_number,
-#     sens_number=sens_number,
-#     seed=seed,
-#     test_idx=test_idx,
-# )
-
-# # remove idx_test adj, features
-# exclude_test = torch.ones(adj.shape[1]).bool()  # indices after removing idx_test
-# exclude_test[idx_test] = False
-# sub_adj = adj[exclude_test][:, exclude_test]
-# indices = []
-# counter = 0
-# for e in exclude_test:
-#     indices.append(counter)
-#     if e:
-#         counter += 1
-# indices = torch.LongTensor(indices)
-# y_idx = indices[idx_train]
-# # ################ modification on dataset idx######################
-# print(len(idx_test))
-
-# from utils import feature_norm
-
-# # G = dgl.DGLGraph()
-# G = dgl.from_scipy(adj, device="cuda:0")
-# subG = dgl.from_scipy(sub_adj, device="cuda:0")
-
-# if dataset == "nba":
-#     features = feature_norm(features)
-
-# labels[labels > 1] = 1
-# if sens_attr:
-#     sens[sens > 0] = 1
-
 
 def feature_norm(features):
+    """Normalizes features"""
     min_values = features.min(axis=0)[0]
     max_values = features.max(axis=0)[0]
 
@@ -556,8 +484,10 @@ def load(
 
     sens_idx = set(np.where(sens >= 0)[0])
     idx_test = np.asarray(list(sens_idx & set(idx_test)))
+    idx_test.sort()
     sens = torch.tensor(sens, device=device)
     idx_sens_train = list(sens_idx - set(idx_val) - set(idx_test))
+    idx_sens_train.sort()
 
     random.seed(data_seed)
     random.shuffle(idx_sens_train)
@@ -569,50 +499,3 @@ def load(
     idx_test = torch.tensor(idx_test, device=device)
 
     return adj, features, labels, sens, idx_train, idx_test, idx_sens_train, idx_val
-
-
-if __name__ == "__main__":
-    # dataset = NBA(
-    #     "./dataset/NBA/nba.csv",
-    #     "./dataset/NBA/nba_relationship.txt",
-    #     "./src/nba_embedding10.npy",
-    #     feat_drop_rate=0.3,
-    #     device="cpu",
-    # )
-
-    # dataset = PokecN(
-    #     "./dataset/pokec/region_job_2.csv",
-    #     "./dataset/pokec/region_job_2_relationship.txt",
-    #     "./src/pokec_n_embedding10.npy",
-    #     feat_drop_rate=0.3,
-    #     device="cpu",
-    # )
-
-    # dataset = PokecZ(
-    #     "./dataset/pokec/region_job.csv",
-    #     "./dataset/pokec/region_job_relationship.txt",
-    #     "./src/pokec_z_embedding10.npy",
-    #     feat_drop_rate=0.3,
-    #     device="cpu",
-    # )
-
-    # dataset = Recidivism(
-    #     feat_drop_rate=0.3,
-    #     embedding_path="./dataset/bail/deepwalk_emb-20240115-155136-wl=100-dim=64-ep=10.npy",
-    #     device="cpu",
-    # )
-
-    # dataset = Credit(
-    #     feat_drop_rate=0.3,
-    #     embedding_path="./dataset/credit/deepwalk_emb-20240125-114643-wl=100-dim=64-ep=10.npy",
-    #     device="cpu",
-    # )
-
-    # loader = DataLoader(dataset)
-
-    # for i, sub_node in enumerate(loader):
-    #     print(i, sub_node)
-
-    # print(dataset.sample_fairac())
-    # print(dataset.inside_labels())
-    pass

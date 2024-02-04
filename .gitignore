@@ -21,3 +21,5 @@ src/logs/*/*/*
 .vscode/
 
 .venv
+
+.ipynb_checkpoints/
