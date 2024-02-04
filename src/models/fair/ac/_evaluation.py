@@ -5,13 +5,19 @@ from pathlib import Path
 from tqdm.auto import trange
 import json
 
-from dataset import NBA
+from dataset import FairACDataset
 from metrics import BestMetrics, Metrics, accuracy, consistency_metric, fair_metric
 from models.gnn import WrappedGNN, WrappedGNNConfig
 
 
 class Evaluation:
-    def __init__(self, dataset: NBA, device: torch.device):
+    def __init__(self, dataset: FairACDataset, device: torch.device):
+        """A class to evaluate FairAC model.
+
+        Args:
+            dataset (NBA): The dataset to use for evaluation.
+            device (torch.device): The device to run the evaluation on.
+        """
         self.dataset = dataset
         self.device = device
 
@@ -40,6 +46,9 @@ class Evaluation:
         self.gnn_config = WrappedGNNConfig(**self.gnn_config)
 
     def evaluate_best_gnn(self):
+        """Evaluate the best GNN model.
+        It is important that the `load_model` method is called before this method, to load the best GNN model.
+        """
         assert self.best_gnn is not None, "Best GNN Model not loaded"
         assert self.model is not None, "AC Model not loaded"
 
@@ -72,6 +81,16 @@ class Evaluation:
             print(f"\tconsistency: {consistency:.4f}")
 
     def evaluate(self, epochs: int = 1000, progress_bar: bool = True):
+        """Evaluate the FairAC model.
+        The evaluation is done by training the GNN model using the AC model's feature embeddings.
+
+        It is important that the `load_model` method is called before this method, to load the AC model.
+
+
+        Args:
+            epochs (int, optional): The amount of epochs to train the GNN for. Defaults to 5000, as the stochastic nature of the training process can lead to different results.
+            progress_bar (bool, optional): Whether to display a progress bar or not. Defaults to True.
+        """
         features_embedding = self._get_feature_embeddings()
         features_embedding_exclude_test = features_embedding[self.dataset.mask].detach()
 
@@ -123,13 +142,18 @@ class Evaluation:
                     output, test_idx, labels, self.dataset.sens
                 )
 
-                result = Metrics(epoch, acc_test.item(), roc_test, parity, equality, None)
+                result = Metrics(
+                    epoch, acc_test.item(), roc_test, parity, equality, None
+                )
 
                 if best_metrics.update_metrics(
                     result, self.hparams["min_acc"], self.hparams["min_roc"]
                 ):
                     best_epoch = epoch
-                    print("Best metrics updated, new fairness:", best_metrics.fair.parity + best_metrics.fair.equality)
+                    print(
+                        "Best metrics updated, new fairness:",
+                        best_metrics.fair.parity + best_metrics.fair.equality,
+                    )
                     best_metrics.fair.consistency = consistency_metric(
                         self.dataset.sparse_adj, test_idx, output
                     )

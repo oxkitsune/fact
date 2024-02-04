@@ -2,25 +2,24 @@ from itertools import chain
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from typing import Optional, Literal
-
 from tqdm.auto import trange
-from models.gnn import GNNKind, WrappedGNN, WrappedGNNConfig
-
 from sklearn.metrics import roc_auc_score
-from metrics import fair_metric, accuracy, Metrics, BestMetrics, consistency_metric
-
-from dataclasses import dataclass, asdict
+from dataclasses import asdict
 from pathlib import Path
 import json
+
+from dataset import FairACDataset
+from metrics import fair_metric, accuracy, Metrics, BestMetrics, consistency_metric
+from models.gnn import WrappedGNN, WrappedGNNConfig
+from models.fair.ac import FairAC
 
 
 class Trainer:
     def __init__(
         self,
-        ac_model,
-        dataset,
-        device,
+        ac_model: FairAC,
+        dataset: FairACDataset,
+        device: torch.device,
         gnn_config: WrappedGNNConfig,
         log_dir: Path,
         min_acc: float,
@@ -30,6 +29,22 @@ class Trainer:
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
     ):
+        """Generate a new Trainer for the FairAC model.
+
+        Args:
+            ac_model (FairAC): The FairAC model to train.
+            dataset (FairACDataset): The dataset to train on.
+            device (torch.device): The device to run the training on.
+            gnn_config (WrappedGNNConfig): The configuration for the GNN model.
+            log_dir (Path): The directory to save the logs and models to.
+            min_acc (float): The minimum accuracy threshold.
+            min_roc (float): The minimum roc threshold.
+            lambda1 (int, optional): The lambda1 hyperparameter. Defaults to 1.
+            lambda2 (int, optional): The lambda2 hyperparameter. Defaults to 1.
+            lr (float, optional): The learning rate for both the AC model and the gnn that's evaluated. Defaults to 1e-3.
+            weight_decay (float, optional) The weight decay value for the Adam optimizer. Defaults to 1e-5.
+        """
+
         self.ac_model = ac_model.to(device)
         self.dataset = dataset
         self.device = device
@@ -266,10 +281,6 @@ class Trainer:
             cy_loss.backward()
 
             gnn_model.optimizer.step()
-
-            # pbar.set_postfix_str(
-            #     f"Loss: {cy_loss.item():.04f}",
-            # )
 
             gnn_model.eval()
             self.ac_model.eval()

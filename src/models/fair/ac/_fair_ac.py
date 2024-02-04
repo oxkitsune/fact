@@ -15,6 +15,17 @@ class FairAC(nn.Module):
         dropout: float,
         num_sensitive_classes: int,
     ):
+        """The Fair AC model.
+
+        Args:
+            feature_dim (int): The dimension of the input features.
+            transformed_feature_dim (int): The dimension of the transformed features.
+            emb_dim (int): The dimension of the embeddings.
+            attn_vec_dim (int): The dimension of the attention vectors.
+            attn_num_heads (int): The number of attention heads.
+            dropout (float): The dropout rate.
+            num_sensitive_classes (int): The number of sensitive classes.
+        """
         super(FairAC, self).__init__()
         self.ae = FairACAutoEncoder(feature_dim, transformed_feature_dim, emb_dim)
         self.hgnn_ac = HGNNAC(
@@ -35,7 +46,7 @@ class FairAC(nn.Module):
         )
 
         return feature_src_re, feature_hat, transformed_features
-    
+
     def sensitive_pred(self, transformed_features):
         return self.sensitive_classifier(transformed_features)
 
@@ -53,15 +64,20 @@ class FairAC(nn.Module):
 
 class FairACAutoEncoder(nn.Module):
     def __init__(self, feature_dim: int, transformed_feature_dim: int, emb_dim: int):
+        """The Fair AC autoencoder.
+
+        Args:
+            feature_dim (int): The dimension of the input features.
+            transformed_feature_dim (int): The dimension of the transformed features.
+            emb_dim (int): The dimension of the embeddings.
+        """
         super(FairACAutoEncoder, self).__init__()
-        # TODO: figure out why they multiply by 2
         self.encoder = nn.Sequential(
             nn.Linear(feature_dim, 2 * transformed_feature_dim),
             nn.ReLU(),
             nn.Linear(2 * transformed_feature_dim, transformed_feature_dim),
         )
 
-        # TODO: figure out why they set gain to 1.414 (sqrt(2) perhaps?)
         nn.init.xavier_normal_(self.encoder[0].weight, gain=1.414)
         nn.init.xavier_normal_(self.encoder[2].weight, gain=1.414)
 
@@ -71,7 +87,6 @@ class FairACAutoEncoder(nn.Module):
             nn.Linear(2 * transformed_feature_dim, feature_dim),
         )
 
-        # TODO: figure out why they set gain to 1.414 (sqrt(2) perhaps?)
         nn.init.xavier_normal_(self.decoder[0].weight, gain=1.414)
         nn.init.xavier_normal_(self.decoder[2].weight, gain=1.414)
 
