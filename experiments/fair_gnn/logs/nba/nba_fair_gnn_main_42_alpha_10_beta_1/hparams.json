@@ -1,0 +1,8 @@
+{
+    "min_acc": 0.65,
+    "min_roc": 0.69,
+    "alpha": 10,
+    "beta": 1,
+    "lr": 0.001,
+    "weight_decay": 1e-05
+}

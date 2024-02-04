@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import sys
 import torch
+import dgl
 
 from typing import List, Dict
 
@@ -63,6 +64,10 @@ class ExperimentRunner:
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        dgl.seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     def runs(self):
         """Generate the runs for the experiment, with all the permutations of seeds and parameters.
@@ -86,41 +91,6 @@ class ExperimentRunner:
                 log_dir.mkdir(parents=True, exist_ok=True)
 
                 yield seed, log_dir, self.device, params
-
-
-def setup_experiment(seed: int, data_path: str, log_dir: str, device: int = 0):
-    """Set up the environment for running an experiment.
-
-    Args:
-        seed (int): The random seed to use for the experiment.
-        data_path (str): The path to the data directory.
-        log_dir (str): The path to the root of the log directory, the experiment log will be created in a subdirectory of this.
-        device (int, optional): The device to run the experiment on. Defaults to 0.
-
-    Returns:
-        Tuple[Path, Path, Path, torch.device]: A tuple containing the root directory, data directory, log directory and the device to run the experiment on.
-    """
-    experiment_dir = Path(__file__).parent.resolve()
-    root_dir = Path(os.path.abspath(f"{str(experiment_dir)}/.."))
-    sys.path.append(str((root_dir / "src").resolve()))
-
-    data_path = root_dir / data_path
-    log_dir = root_dir / log_dir
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    device = torch.device(f"cuda:{device}" if torch.cuda.is_available() else "cpu")
-
-    print("Using directories:")
-    print("root_dir:", root_dir)
-    print("data_dir:", data_path)
-    print("log_dir:", log_dir)
-    print("========================================")
-    print(
-        "device:",
-        device,
-    )
-
-    return root_dir, data_path, log_dir, device
 
 
 def setup_evaluation(seed: int, data_path: str, model_dir: str, device: int = 0):
@@ -148,6 +118,10 @@ def setup_evaluation(seed: int, data_path: str, model_dir: str, device: int = 0)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    dgl.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     print("Using directories:")
     print("root_dir:", root_dir)

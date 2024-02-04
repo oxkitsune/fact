@@ -22,6 +22,8 @@ class Trainer:
         log_dir: Path,
         min_acc: float,
         min_roc: float,
+        alpha: float,
+        beta: float,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
     ):
@@ -35,6 +37,10 @@ class Trainer:
         self.best_val_metrics = BestMetrics(None, None, None, None)
         self.min_acc = min_acc
         self.min_roc = min_roc
+        self.alpha = alpha
+        self.beta = beta
+        self.lr = lr
+        self.weight_decay = weight_decay
 
         gnn_params = chain(
             self.fair_gnn.gnn.parameters(), self.fair_gnn.estimator.parameters()
@@ -45,6 +51,9 @@ class Trainer:
         self.adv_optimizer = torch.optim.Adam(
             self.fair_gnn.adv.parameters(), lr=lr, weight_decay=weight_decay
         )
+
+        # save configuration in log dir
+        self._save_config()
 
     def train(
         self,
@@ -87,7 +96,7 @@ class Trainer:
             print("Finished training!")
             Trainer._print_metric(self.best_fair, "fair")
 
-            with open(self.log_dir / "best_metrics.json", "a") as f:
+            with open(self.log_dir / "best_metrics.json", "w+") as f:
                 best_metrics = asdict(self.best_fair)
                 best_metrics["best_epoch"] = self.best_epoch
                 best_metrics["best_gnn_model"] = f"gnn_epoch{self.best_epoch}.pt"
@@ -123,6 +132,8 @@ class Trainer:
             labels[train_idx].unsqueeze(1).to(dtype=torch.float32, device=self.device),
             s_g,
             s_score,
+            self.alpha,
+            self.beta
         )
         gnn_loss.backward()
         self.gnn_optimizer.step()
@@ -187,7 +198,6 @@ class Trainer:
             self.best_fair = result
             self.best_output = output
             self.best_epoch = curr_epoch
-            pbar.write(f"[{curr_epoch}] updated to: {self.best_fair}")
 
     def _print_metric(metric, name):
         print(f"Best {name} model:")
@@ -198,3 +208,20 @@ class Trainer:
 
         if metric.consistency is not None:
             print(f"\tconsistency: {metric.consistency:.04f}")
+
+    def _save_config(self):
+        # open file in mode that truncates first
+        with open(self.log_dir / "hparams.json", "w+") as f:
+            hparams = {
+                "min_acc": self.min_acc,
+                "min_roc": self.min_roc,
+                "alpha": self.alpha,
+                "beta": self.beta,
+                "lr": self.lr,
+                "weight_decay": self.weight_decay,
+            }
+
+            json.dump(hparams, f, indent=4)
+
+        with open(self.log_dir / "gnn_config.json", "w+") as f:
+            json.dump(asdict(self.fair_gnn.gnn_config), f, indent=4)
