@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 
 import numpy as np
 import scipy.sparse as sp
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import os
 import pandas as pd
 import dgl
