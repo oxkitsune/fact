@@ -79,7 +79,9 @@ class Trainer:
         if self.best_fair is None:
             print("Please set smaller acc/roc thresholds!")
         else:
-            consistency = consistency_metric(self.dataset.sparse_adj, self.dataset.test_idx, self.best_output)
+            consistency = consistency_metric(
+                self.dataset.sparse_adj, self.dataset.test_idx, self.best_output
+            )
             self.best_fair.consistency = consistency
 
             print("Finished training!")
@@ -97,7 +99,7 @@ class Trainer:
         sens_train_idx = self.dataset.sens_train_idx
         y_idx, train_idx, labels = self.dataset.inside_labels()
 
-        sens = sens.float()
+        sens = sens.to(dtype=torch.float32, device=self.device)
 
         self.fair_gnn.adv.requires_grad_(False)
         self.gnn_optimizer.zero_grad()
@@ -108,11 +110,19 @@ class Trainer:
         s_g = self.fair_gnn.adv(h)
 
         s_score = torch.sigmoid(s.detach())
-        s_score[sens_train_idx] = sens[sens_train_idx].unsqueeze(1).float()
+        s_score[sens_train_idx] = (
+            sens[sens_train_idx]
+            .unsqueeze(1)
+            .to(dtype=torch.float32, device=self.device)
+        )
         y_score = torch.sigmoid(y)
 
         gnn_loss = self.fair_gnn.gnn_loss(
-            y_score, y[train_idx], labels[train_idx].unsqueeze(1).float(), s_g, s_score
+            y_score,
+            y[train_idx],
+            labels[train_idx].unsqueeze(1).to(dtype=torch.float32, device=self.device),
+            s_g,
+            s_score,
         )
         gnn_loss.backward()
         self.gnn_optimizer.step()
@@ -159,9 +169,7 @@ class Trainer:
             f"Acc: {acc_test.item():.4f}, Roc: {roc_test:.4f}, Parity: {parity:.4f}, Equality: {equality:.4f}",
         )
 
-        result = Metrics(
-            curr_epoch, acc_test.item(), roc_test, parity, equality, None
-        )
+        result = Metrics(curr_epoch, acc_test.item(), roc_test, parity, equality, None)
 
         if (
             (

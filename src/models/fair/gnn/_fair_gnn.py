@@ -22,8 +22,10 @@ class FairGNN(nn.Module):
             weight_decay=1e-5,
             kwargs={"dropout": 0.5},
         ),
+        device=torch.device,
     ):
         super(FairGNN, self).__init__()
+        self.device = device
         self.alpha = alpha
         self.beta = beta
         self.estimator = GCN(num_features, num_hidden, dropout, 1)
@@ -36,6 +38,7 @@ class FairGNN(nn.Module):
 
     def load_estimator(self, path: Path):
         self.estimator.load_state_dict(torch.load(path))
+        self.estimator = self.estimator.to(self.device)
 
     def forward(self, adj, x):
         s = self.estimator(adj, x)
