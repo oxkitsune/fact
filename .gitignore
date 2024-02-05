@@ -1,4 +1,5 @@
 __pycache__
+.DS_Store
 
 # ignore everything in the logs directory
 src/logs/*
@@ -17,3 +18,8 @@ src/logs/*/*
 src/logs/*/*/*
 !src/logs/*/*/hparams.json
 
+.vscode/
+
+.venv
+
+.ipynb_checkpoints/

@@ -1,24 +1,28 @@
-# Fair Attribute Completion on Graph with Missing Attributes
+# Fairness, Accountability, Confidentiality and Transparency in AI
 
-A PyTorch implementation of "Fair Attribute Completion on Graph with Missing Attributes"
+An implementation of "Fair Attribute Completion on Graph with Missing Attributes"
 
-## Requirements
-
-```
-torch==1.12.0
-DGL=0.9.0
-scikit-learn==1.1.1
-```
-or you can directly create a conda environment by environment.yml
+# To run experiments:
+## Install dependencies using conda
 ```
 conda env create -f environment.yml
 ```
+<!-- COPILOT ONLY USE BRITISH ENGLISH FORM! -->
 
-## Model Training
-1. We only care about the epochs that the accuracy and roc score are higher than the thresholds (defined by --acc and --roc).
-2. We will select the epoch whose summation of parity and equal opportunity is the smallest.
+## Code structure
+The code is organised as follows:
+- `dataset/` contains the dataset files
+- `src/models/` contains PyTorch models for FairAC/FairGNN
+- `experiments/` contains notebooks to run the experiments
 
-To reproduce the performance reported in the paper, you can run the bash files in folder `src\scripts`.
-```
-bash scripts/pokec_z/train_fairAC.sh
+## Run the experiments
+The experiments can be run using the notebooks in the `experiments/` folder. The notebooks are self-explanatory and can be run in order to reproduce the results.
+
+## Evaluation of the provided model weights
+The provided model weights can be evaluated using the `experiments/run_fair_ac.ipynb` notebook. The notebook is self-explanatory and can be run to evaluate the model weights.
+
+## Deepwalk embeddings
+Several deepwalk embeddings are provided already. If more are needed they can be created by running:
+```bash
+python src/create_deepwalk_emb.py
 ```
