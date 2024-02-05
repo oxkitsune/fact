@@ -19,4 +19,4 @@ The code is organised as follows:
 The experiments can be run using the notebooks in the `experiments/` folder. The notebooks are self-explanatory and can be run in order to reproduce the results.
 
 ## Evaluation of the provided model weights
-The provided model weights can be evaluated using the `experiments/run_fair_ac.ipynb` and `experiments/run_fair_gnn.ipynb` notebook. The notebook is self-explanatory and can be run to evaluate the model weights.
+The provided model weights can be evaluated using the `experiments/run_fair_ac.ipynb` notebook. The notebook is self-explanatory and can be run to evaluate the model weights.
