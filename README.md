@@ -1,4 +1,4 @@
-# Fair Attribute Completion on Graph with Missing Attributes
+# Fairness, Accountability, Confidentiality and Transparency in AI
 
 An implementation of "Fair Attribute Completion on Graph with Missing Attributes"
 
