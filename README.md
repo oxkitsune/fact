@@ -20,3 +20,9 @@ The experiments can be run using the notebooks in the `experiments/` folder. The
 
 ## Evaluation of the provided model weights
 The provided model weights can be evaluated using the `experiments/run_fair_ac.ipynb` notebook. The notebook is self-explanatory and can be run to evaluate the model weights.
+
+## Deepwalk embeddings
+Several deepwalk embeddings are provided already. If more are needed they can be created by running:
+```bash
+python src/create_deepwalk_emb.py
+```
