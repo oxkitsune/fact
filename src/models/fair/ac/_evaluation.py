@@ -80,7 +80,7 @@ class Evaluation:
             )
             print(f"\tconsistency: {consistency:.4f}")
 
-    def evaluate(self, epochs: int = 1000, progress_bar: bool = True):
+    def evaluate(self, epochs: int = 3000, progress_bar: bool = True):
         """Evaluate the FairAC model.
         The evaluation is done by training the GNN model using the AC model's feature embeddings.
 
