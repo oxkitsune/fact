@@ -17,7 +17,8 @@ The code is organised as follows:
 The experiments can be run using the notebooks in the `experiments/` folder. The notebooks are self-explanatory and can be run in order to reproduce the results.
 
 ## Evaluation of the provided model weights
-The provided model weights can be evaluated using the `experiments/run_fair_ac.ipynb` notebook. The notebook is self-explanatory and can be run to evaluate the model weights.
+We provide the pre-trained weights from our experiments in `experiments/logs`.
+These weights can be evaluated using the `experiments/run_fair_ac.ipynb` notebook. The notebook is self-explanatory and can be run to evaluate the model weights.
 
 ## Deepwalk embeddings
 Several deepwalk embeddings are provided already. If more are needed they can be created by running:
@@ -34,4 +35,4 @@ python src/create_deepwalk_emb.py
 | Pokec-n   | FairAC | 67.00 ± 1.93    | 72.57 ± 1.68     | **0.11 ± 0.06**  | 0.47 ± 0.81      | **0.58 ± 0.76**  | **45.94 ± 0.02** |
 
 
-These resulst can be reproduced by running the `*_3_seeds.ipynb` notebooks under `experiments/fair_ac`
+These result can be reproduced by running the `*_3_seeds.ipynb` notebooks under `experiments/fair_ac`
