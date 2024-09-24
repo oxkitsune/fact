@@ -28,8 +28,6 @@ python src/create_deepwalk_emb.py
 
 
 ## Results
-To convert the LaTeX table to Markdown format, the table will be simplified to fit Markdown's capabilities, as Markdown does not support complex table structures (like merged cells or mathematical symbols) directly. Here's a simplified version:
-
 | Dataset | Method | M | Acc ↑ | AUC ↑ | ΔSP ↓ | ΔEO ↓ | ΔSP+ΔEO ↓ | Consistency ↑ |
 |---------|--------|---|-------|-------|-------|-------|-----------|--------------|
 | **NBA** | GCN | ✔ | 66.98 ± 1.18 | **76.15 ± 1.40** | 0.14 ± 0.13 | 0.57 ± 0.06 | 0.71 ± 0.18 | **2.64 ± 0.00** |
