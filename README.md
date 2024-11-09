@@ -1,5 +1,5 @@
 # Reproducibility study of FairAC
-An implementation of "Fair Attribute Completion on Graph with Missing Attributes" paper.
+An implementation of "Fair Attribute Completion on Graph with Missing Attributes" [paper](https://openreview.net/forum?id=9vcXCMp9VEp) by D. Guo, Z. Chu, and S. Li.
 
 # To run experiments:
 ## Install dependencies using conda
